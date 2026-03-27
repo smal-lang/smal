@@ -4,6 +4,8 @@
         "smal": "App",
         "codegen": "Template",
         "c": "Scripts",
-        "diagramming": "Images"
+        "diagramming": "Images",
+        "formatting": "Theme",
+        "macros": "Rules",
     }
 }
