@@ -1,3 +1,4 @@
+import stat
 from pydantic import BaseModel, Field, model_validator
 from typing_extensions import Self
 from smal.schemas.smal_state import SMALState
@@ -14,7 +15,7 @@ from pathlib import Path
 class SMALFile(IdentifierValidationMixin, SemverValidationMixin, BaseModel):
     IDENTIFIER_FIELDS = ("machine",)
     SEMVER_FIELDS = ("version",)
-    SUPPORTED_FILE_EXTENSIONS = (".smal", ".yaml", ".yml")
+    SUPPORTED_FILE_EXTENSIONS = {".smal", ".yaml", ".yml"}
 
     machine: str = Field(..., description="Name of this state machine.")
     version: str = Field(..., description="Semantic version (major.minor.patch) of this state machine.")
@@ -30,7 +31,18 @@ class SMALFile(IdentifierValidationMixin, SemverValidationMixin, BaseModel):
 
     @model_validator(mode="after")
     def validate_smal_file(self) -> Self:
-        # TODO: Validate that all SMALTransition objects reference existing states, events, etc.
+        # Validate that all SMALTransition objects reference existing states, events, etc.
+        state_map: dict[str, SMALState] = {s.name: s for s in self.states}
+        evt_map: dict[str, SMALEvent] = {e.name: e for e in self.events}
+        for transition in self.transitions:
+            if transition.trigger_state not in state_map:
+                raise ValueError(f"Transition {transition} references unknown trigger state '{transition.trigger_state}'. Must be one of: {', '.join(state_map.keys())}")
+            if transition.trigger_evt not in evt_map:
+                raise ValueError(f"Transition {transition} references unknown trigger event '{transition.trigger_evt}'. Must be one of: {', '.join(evt_map.keys())}")
+            if transition.landing_state not in state_map:
+                raise ValueError(f"Transition {transition} references unknown landing state '{transition.landing_state}'. Must be one of: {', '.join(state_map.keys())}")
+            if transition.landing_state_entry_evt is not None and transition.landing_state_entry_evt not in evt_map:
+                raise ValueError(f"Transition {transition} references unknown landing state entry event '{transition.landing_state_entry_evt}'. Must be one of: {', '.join(evt_map.keys())}")
         return self
 
     def to_file(self, path: str | Path, exclude_unset: bool = False, exclude_defaults: bool = False, exclude_none: bool = True, exclude_computed_fields: bool = False, sort_keys: bool = False, indent: int = 2) -> None:
