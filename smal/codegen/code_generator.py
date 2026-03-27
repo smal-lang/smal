@@ -17,7 +17,11 @@ class SMALCodeGenerator:
         context = {
             "smal": smal,
             "machine": smal.machine,
+            "version": smal.version,
             "states": smal.states,
+            "constants": smal.constants,
+            "enums": smal.enums,
+            "structs": smal.structs,
             "events": smal.events,
             "commands": smal.commands,
             "errors": smal.errors,

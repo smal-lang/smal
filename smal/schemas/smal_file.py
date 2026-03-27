@@ -7,7 +7,8 @@ from smal.schemas.smal_command import SMALCommand
 from smal.schemas.smal_error import SMALError
 # from smal.schemas.smal_message import SMALMessage
 from smal.schemas.smal_transition import SMALTransition
-from smal.schemas.smal_debug import SMALDebugStruct
+from smal.schemas.smal_struct import SMALStruct
+from smal.schemas.smal_enum import SMALEnum
 from smal.schemas.utilities import IdentifierValidationMixin, SemverValidationMixin
 import yaml
 from pathlib import Path
@@ -23,9 +24,12 @@ class SMALFile(IdentifierValidationMixin, SemverValidationMixin, BaseModel):
     events: list[SMALEvent] = Field(default_factory=list, description="Events associated with this state machine, if any.")
     commands: list[SMALCommand] = Field(default_factory=list, description="Commands associated with this state machine, if any.")
     errors: list[SMALError] = Field(default_factory=list, description="Errors associated with this state machine, if any.")
+    constants: dict[str, str | int] = Field(default_factory=dict, description="Constants to define for this state machine, if any.")
     # messages: list[SMALMessage] = Field(default_factory=list, description="Messages associated with this state machine, if any.")
     transitions: list[SMALTransition] = Field(default_factory=list, description="State transitions associated with this state machine, if any.")
-    debug: SMALDebugStruct | None = Field(default=None, description="Debugging structure associated with this state machine, if any.")
+    enums: list[SMALEnum] = Field(default_factory=list, description="Enumerations to define for this state machine, if any.")
+    structs: list[SMALStruct] = Field(default_factory=list, description="Structures to define for this state machine, if any.")
+    debug: SMALStruct | None = Field(default=None, description="Debugging structure associated with this state machine, if any.")
     description: str | None = Field(default=None, description="Description of the state machine.")
 
 
