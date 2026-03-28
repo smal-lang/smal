@@ -5,7 +5,7 @@ from smal.schemas.utilities import IdentifierValidationMixin, PrimitiveValidatio
 from typing import Literal, ClassVar
 from typing_extensions import Self
 from smal.smal_primitive import SMALPrimitive
-from smal.codegen import is_lang_supported, SUPPORTED_CODEGEN_LANGUAGES, get_codegen_primitive
+from smal.codegen import is_lang_supported, SUPPORTED_CODEGEN_LANGUAGES, get_target_primitive
 from smal.schemas.smal_enum import SMALEnum
 from smal.schemas.smal_bitfield import SMALBitField
 
@@ -74,7 +74,7 @@ class SMALStruct(BaseModel):
                         raise ValueError(f"Field {field.name}: struct type '{base}' not defined in debug.nested_structs")
                     elem_size = struct_map[base].size_bytes
                 case _:
-                    lang_local_primitive = get_codegen_primitive(kind, self.lang)
+                    lang_local_primitive = get_target_primitive(kind, self.lang)
                     elem_size = lang_local_primitive.size_bytes
             length_elements = field.length_elements or 1
             if length_elements <= 0:

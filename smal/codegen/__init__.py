@@ -1,5 +1,5 @@
 from smal.smal_primitive import SMALPrimitive
-from smal.codegen.codegen_primitive import CodegenPrimitive
+from smal.codegen.target_primitive import TargetPrimitive
 from typing import Final
 import importlib
 
@@ -12,7 +12,7 @@ def is_lang_supported(lang: str, case_sensitive: bool = False) -> bool:
     return lang in SUPPORTED_CODEGEN_LANGUAGES
 
 
-def get_codegen_primitive(smal_primitive: SMALPrimitive, lang: str) -> CodegenPrimitive:
+def get_target_primitive(smal_primitive: SMALPrimitive, lang: str) -> TargetPrimitive:
     if lang not in SUPPORTED_CODEGEN_LANGUAGES:
         raise ValueError(f"Unsupported codegen language: {lang}. Supported languages are: {', '.join(SUPPORTED_CODEGEN_LANGUAGES)}")
     module = importlib.import_module(f"smal.codegen.{lang}.primitives")
@@ -32,4 +32,4 @@ def get_codegen_primitive(smal_primitive: SMALPrimitive, lang: str) -> CodegenPr
     local_primitive_size = local_primitive_sizes_bytes.get(decoded_primitive)
     if local_primitive_size is None:
         raise ValueError(f"Codegen language package '{lang}' does not define a size in bytes for local primitive that maps to SMAL primitive '{smal_primitive.value}'")
-    return CodegenPrimitive(decoded_primitive, local_primitive_size)
+    return TargetPrimitive(decoded_primitive, local_primitive_size)

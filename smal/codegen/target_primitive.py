@@ -2,6 +2,6 @@
 from dataclasses import dataclass
 
 @dataclass
-class CodegenPrimitive:
+class TargetPrimitive:
     name: str
     size_bytes: int

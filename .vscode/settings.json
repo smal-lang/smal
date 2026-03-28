@@ -1,5 +1,4 @@
 {
-    "python-envs.pythonProjects": [],
     "material-icon-theme.folders.associations": {
         "smal": "App",
         "codegen": "Template",
@@ -7,5 +6,9 @@
         "diagramming": "Images",
         "formatting": "Theme",
         "macros": "Rules",
-    }
+    },
+    "editor.formatOnSave": true,
+    "ruff.lint.enable": true,
+    "ruff.lineLength": 160,
+    "editor.defaultFormatter": "charliermarsh.ruff",
 }

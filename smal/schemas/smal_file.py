@@ -4,15 +4,15 @@ from typing import ClassVar
 from smal.schemas.smal_state import SMALState
 from smal.schemas.smal_event import SMALEvent
 from smal.schemas.smal_command import SMALCommand
-from smal.schemas.smal_error import SMALError
 # from smal.schemas.smal_message import SMALMessage
-from smal.schemas.smal_transition import SMALTransition
 from smal.schemas.smal_struct import SMALStruct
 from smal.schemas.smal_enum import SMALEnum
+from smal.schemas.smal_error import SMALError
 from smal.schemas.utilities import IdentifierValidationMixin, SemverValidationMixin
 import yaml
-from pathlib import Path
 
+from smal.schemas.smal_transition import SMALTransition
+from pathlib import Path
 class SMALFile(IdentifierValidationMixin, SemverValidationMixin, BaseModel):
     IDENTIFIER_FIELDS: ClassVar[tuple[str]] = ("machine",)
     SEMVER_FIELDS: ClassVar[tuple[str]] = ("version",)
