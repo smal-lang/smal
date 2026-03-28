@@ -23,5 +23,11 @@ dev = [
 [tool.setuptools]
 package-dir = {"" = "src"}
 
+[tools.setuptools.packages.find]
+where = ["src"]
+
+[tools.setuptools.package-data]
+smal = ["codegen/templates/*.j2", "codegen/templates/macros/*.j2"]
+
 [project.scripts]
 smal = "smal.cli.app:app"

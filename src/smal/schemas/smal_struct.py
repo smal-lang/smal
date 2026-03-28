@@ -5,7 +5,7 @@ from typing import ClassVar, Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
 from typing_extensions import Self
 
-from smal.codegen import get_target_primitive
+from smal.codegen.target_primitive import get_target_primitive
 from smal.schemas.smal_bitfield import SMALBitField
 from smal.schemas.smal_enum import SMALEnum
 from smal.schemas.utilities import IdentifierValidationMixin, PrimitiveValidationMixin
