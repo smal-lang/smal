@@ -37,6 +37,9 @@ smal = [
 ]
 
 [tool.semantic_release]
+username = "__token__"
+password = ""
+repository = { env = "SEMANTIC_RELEASE_PYPI_REPOSITORY" }
 version_variable = "pyproject.toml:version"
 branch = "master"
 upload_to_pypi = true
