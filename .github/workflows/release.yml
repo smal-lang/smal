@@ -34,7 +34,6 @@ jobs:
 
       # Optional: only if you want artifacts uploaded to GitHub Releases
       - name: Build package
-        if: always()
         run: |
           pip install build
           python -m build
