@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.1.9 (2026-03-30)
+
+### Bug Fixes
+
+- Update project links and badges in README
+  ([`b4bb4a3`](https://github.com/smal-lang/smal/commit/b4bb4a3434132731ecb6d7580a3d15dfcb23c1aa))
+
+
 ## v0.1.8 (2026-03-30)
 
 ### Bug Fixes
