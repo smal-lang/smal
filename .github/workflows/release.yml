@@ -19,8 +19,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.ref_name }}
-          fetch-depth: 0    # Full history needed for semantic-release
-          fetch-tags: true  # Fetch tags
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Install uv
         uses: astral-sh/setup-uv@v3
@@ -63,16 +63,12 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - build
-
     if: ${{ needs.build.outputs.new-release-detected == 'true' }}
-
     concurrency:
       group: ${{ github.workflow }}-release-${{ github.ref_name }}
       cancel-in-progress: false
-
     permissions:
       contents: write
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -105,7 +101,7 @@ jobs:
         run: git add uv.lock
 
       - name: Build artifacts for release
-        run: uv build  # <-- ensures the artifacts are actually built
+        run: uv build
 
       - name: Create and publish release
         id: release
@@ -115,16 +111,23 @@ jobs:
         run: |
           uv run semantic-release -v --strict version
           uv run semantic-release publish
+          # Explicitly set output to allow deploy job to trigger
+          echo "released=true" >> $GITHUB_OUTPUT
+
+    outputs:
+      released: ${{ steps.release.outputs.released }}
+      new-release-version: ${{ steps.release.outputs.version }}
+      new-release-tag: ${{ steps.release.outputs.tag }}
 
   deploy:
     name: Deploy to PyPI
     runs-on: ubuntu-latest
     needs:
       - release
-    if: ${{ needs.release.outputs.released == 'true' && github.repository == 'python-semantic-release/my-package' }}
+    if: ${{ needs.release.outputs.released == 'true' }}
     environment:
       name: pypi
-      url: https://pypi.org/project/my-package/
+      url: https://pypi.org/project/smal-lang/
     permissions:
       id-token: write
     steps:
