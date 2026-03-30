@@ -122,13 +122,13 @@ jobs:
       new-release-tag: ${{ steps.release.outputs.tag }}
 
   deploy:
-    name: Deploy to TestPyPI
+    name: Deploy to PyPI
     runs-on: ubuntu-latest
     needs: release
     if: ${{ needs.release.outputs.released == 'true' }}
     environment:
       name: pypi
-      url: https://test.pypi.org/project/smal-lang/
+      url: https://pypi.org/project/smal-lang/
     permissions:
       id-token: write
     steps:
@@ -142,17 +142,17 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/dist
-          repository-url: https://test.pypi.org/legacy
           print-hash: true
           verbose: true
-  # deploy:
-  #   name: Deploy to PyPI
+
+  # test-deploy:
+  #   name: Deploy to TestPyPI
   #   runs-on: ubuntu-latest
   #   needs: release
   #   if: ${{ needs.release.outputs.released == 'true' }}
   #   environment:
-  #     name: pypi
-  #     url: https://pypi.org/project/smal-lang/
+  #     name: testpypi
+  #     url: https://test.pypi.org/project/smal-lang/
   #   permissions:
   #     id-token: write
   #   steps:
@@ -162,9 +162,10 @@ jobs:
   #         name: ${{ needs.build.outputs.distribution-artifacts }}
   #         path: dist
 
-  #     - name: Publish to PyPI
+  #     - name: Publish to TestPyPI
   #       uses: pypa/gh-action-pypi-publish@release/v1
   #       with:
   #         packages-dir: dist/dist
+  #         repository-url: https://test.pypi.org/legacy
   #         print-hash: true
   #         verbose: true
