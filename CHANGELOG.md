@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.1.4 (2026-03-30)
+
+### Bug Fixes
+
+- Uv build cmd
+  ([`a1defdd`](https://github.com/smal-lang/smal/commit/a1defdde438dc755de1412ea9497a29cf486d186))
+
+
 ## v0.1.3 (2026-03-30)
 
 ### Bug Fixes
