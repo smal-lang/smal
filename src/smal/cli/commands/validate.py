@@ -3,27 +3,31 @@ from __future__ import annotations  # Until Python 3.14
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, TypeAlias
+from functools import cached_property
+from pathlib import Path
+from typing import Any, ClassVar
 
-from jinja2 import Environment, TemplateNotFound, meta, nodes
+from jinja2 import TemplateNotFound, nodes
 from pydantic import BaseModel
 
-
-@dataclass(frozen=True)
-class TemplateRef:
-    name: str | None
-    line: int
-    col: int
+from smal.codegen.code_generator import SMALCodeGenerator
+from smal.schemas.smal_file import SMALFile
 
 
 @dataclass(frozen=True)
-class TemplateVariableRef(TemplateRef):
+class TemplateVariableRef:
     name: str
     line: int
     col: int
 
 
-TemplateMacroRef: TypeAlias = TemplateRef
+@dataclass(frozen=True)
+class TemplateMacroRef:
+    name: str
+    alias: str | None
+    src_template_ref: str | None
+    line: int
+    col: int
 
 
 class Severity(str, Enum):
@@ -31,13 +35,21 @@ class Severity(str, Enum):
     WARNING = "warning"
     INFO = "info"
 
+    @cached_property
+    def color(self) -> str:
+        return {
+            Severity.ERROR: "red",
+            Severity.WARNING: "yellow",
+            Severity.INFO: "cyan",
+        }[self]
+
 
 @dataclass
 class SMALValidationIssue:
     severity: Severity
     message: str
-    location: tuple[int, int] | None = None
-    code: str | None = None
+    location: tuple[int, int]
+    code: str
 
 
 @dataclass
@@ -45,77 +57,239 @@ class SMALValidationResult:
     template_name: str
     issues: list[SMALValidationIssue] = field(default_factory=list)
 
-    def add_issue(self, severity: Severity, message: str, location: tuple[int, int] | None = None, code: str | None = None) -> None:
+    def add_issue(self, severity: Severity, message: str, location: tuple[int, int], code: str) -> None:
         self.issues.append(SMALValidationIssue(severity, message, location, code))
 
     @property
     def ok(self) -> bool:
         return all(issue.severity != Severity.ERROR for issue in self.issues)
 
+    def echo_report(self, template_path: Path | None = None) -> None:
+        from rich.console import Console
+        from rich.padding import Padding
+        from rich.text import Text
 
-def extract_paths_from_model_schema(model_schema: dict[str, Any], prefix: str = "") -> set[str]:
+        console = Console()
+        console.print(f"[bold underline cyan]Validation Report for: {self.template_name}[/bold underline cyan]\n")
+        if not self.issues:
+            console.print(f"[green]No issues found! '{self.template_name}' is a valid SMAL template![/green]")
+            return
+        for issue in self.issues:
+            header = Text()
+            header.append(issue.severity.name, style=issue.severity.color)
+            header.append(f" {issue.code}", style="yellow")
+            header.append(f" at {f'{template_path}::' if template_path else ''}{issue.location[0]}:{issue.location[1]}")
+            console.print(header)
+            console.print(Padding(issue.message, pad=(0, 0, 0, 4)))
+            console.print()  # Blank line between issues
+
+
+class JinjaTemplateValidator:
+    VALID_EXTENSIONS: ClassVar[set[str]] = {".j2", ".jinja", ".jinja2", ".tpl", ".template"}
+
+    def __init__(self, template: str | Path) -> None:
+        self._generator = SMALCodeGenerator()
+        if isinstance(template, str):
+            self.env = self._generator.env_builtin
+            self.template, self.smal_template = self._generator.load_builtin_template(template)
+            self.builtin = True
+        else:
+            if template.suffix.lower() not in self.VALID_EXTENSIONS:
+                raise ValueError(
+                    f"Template file '{template}' does not have a typical Jinja2 template extension: {template.suffix}. Must be one of {', '.join(self.VALID_EXTENSIONS)}"
+                )
+            self.env, self.template = self._generator.load_external_template(template)
+            self.builtin = False
+        if self.env.loader is None:
+            raise RuntimeError("Jinja2 environment loader is not configured.")
+        if self.template.name is None:
+            raise RuntimeError("Unable to determine Jinja2 template name.")
+        self.template_name = self.template.name
+        self.template_source, _, _ = self.env.loader.get_source(self.env, self.template.name)
+        self.template_lines = self.template_source.splitlines()
+        self.allowed_paths = generate_allowed_variable_paths_from_model(SMALFile)
+        self.ast = self.env.parse(self.template_source)
+
+    def validate(self) -> SMALValidationResult:
+        validation_result = SMALValidationResult(self.template_name)
+        self._validate_macros(validation_result)
+        self._validate_variables(validation_result)
+        return validation_result
+
+    @cached_property
+    def macro_calls(self) -> set[str]:
+        macro_calls = set()
+        for call in self.ast.find_all(nodes.Call):
+            if isinstance(call.node, nodes.Name):
+                macro_calls.add(call.node.name)
+        return macro_calls
+
+    @cached_property
+    def loop_variables(self) -> set[str]:
+        loop_vars = set()
+        for loop in self.ast.find_all(nodes.For):
+            target = loop.target
+            if isinstance(target, nodes.Name):
+                loop_vars.add(target.name)
+            elif isinstance(target, nodes.Tuple):
+                for elem in target.items:
+                    if isinstance(elem, nodes.Name):
+                        loop_vars.add(elem.name)
+        return loop_vars
+
+    def macros(self) -> Iterator[TemplateMacroRef]:
+        for node in self.ast.find_all(nodes.FromImport):
+            src_template_ref = node.template.value if isinstance(node.template, nodes.Const) else None
+            if not src_template_ref:
+                continue
+            col = self._extract_template_column(self.template_lines, node.lineno, "import")
+            for name in node.names:
+                if isinstance(name, str):
+                    yield TemplateMacroRef(name, None, src_template_ref, node.lineno, col)
+                elif isinstance(name, tuple):
+                    yield TemplateMacroRef(name[0], name[1], src_template_ref, node.lineno, col)
+                else:
+                    raise RuntimeError(f"Unable to validate jinja2 macro: {src_template_ref}")
+
+    def variables(self) -> Iterator[TemplateVariableRef]:
+        for node in self.ast.find_all(nodes.Name):
+            if node.name in self.macro_calls:
+                continue  # Ignore calls to macros, we validate those elsewhere
+            if node.ctx != "load":
+                continue  # ctx==load means we are reading an existing var
+            if node.name in self.loop_variables:
+                continue  # Ignore variables created as part of jinja loops
+            variable_name = node.name
+            variable_lineno = node.lineno
+            variable_colno = self._extract_template_column(self.template_lines, variable_lineno, variable_name)
+            yield TemplateVariableRef(variable_name, variable_lineno, variable_colno)
+
+    @staticmethod
+    def is_jinja2_builtin(symbol: str) -> bool:
+        # This is a simplified check. In reality, Jinja2 has many built-in variables and functions.
+        jinja2_builtins = {"loop", "self", "super", "config", "namespace"}
+        return symbol in jinja2_builtins
+
+    @staticmethod
+    def _extract_template_column(lines: list[str], lineno: int, variable_name: str) -> int:
+        if 1 <= lineno <= len(lines):
+            text_line = lines[lineno - 1]
+            colno = text_line.find(variable_name)
+            return colno if colno != -1 else 0
+        return 0
+
+    def _validate_macros(self, result: SMALValidationResult) -> None:
+        for ref in self.macros():
+            if not ref.src_template_ref:
+                continue
+            try:
+                self.env.get_template(ref.src_template_ref)
+                # If we're working with a SMAL-provided template, we want to recursively validate all referenced macro templates
+                # This is to ensure all templates SMAL provides are adherent
+                if self.builtin:
+                    recursive_validator = JinjaTemplateValidator(ref.name)
+                    recursive_result = recursive_validator.validate()
+                    if not recursive_result.ok:
+                        recursive_result.echo_report()
+                        raise RuntimeError("Macro source template is invalid.")
+            except TemplateNotFound:
+                result.add_issue(
+                    Severity.ERROR,
+                    f"Macro template '{ref.src_template_ref}' not found.",
+                    (ref.line, ref.col),
+                    code="MACRO_TEMPLATE_NOT_FOUND",
+                )
+
+    def _validate_variables(self, result: SMALValidationResult) -> None:
+        def is_allowed_symbol(symbol: str) -> bool:
+            if symbol in self.allowed_paths:
+                return True
+            prefix_dot = symbol + "."
+            prefix_arr = symbol + "[]"
+            for p in self.allowed_paths:
+                if p.startswith(prefix_dot) or p.startswith(prefix_arr):
+                    return True
+            return False
+
+        for ref in self.variables():
+            if self.is_jinja2_builtin(ref.name):
+                continue
+            if not is_allowed_symbol(ref.name):
+                result.add_issue(
+                    Severity.ERROR,
+                    f"Unknown variable '{ref.name}' used in template '{self.template_name}'",
+                    location=(ref.line, ref.col),
+                    code="UNDEFINED_VARIABLE",
+                )
+
+
+def extract_paths_from_model_schema(model_schema: dict[str, Any], prefix: str = "", root_schema: dict[str, Any] | None = None) -> set[str]:
     """Extracts variable paths from a Pydantic model schema.
 
     Args:
         model_schema (dict[str, Any]): The JSON schema of the model.
         prefix (str, optional): The prefix for the variable paths. Defaults to "".
+        root_schema (dict[str, Any], optional): The root schema for resolving references. Defaults to None.
 
     Returns:
         set[str]: A set of variable paths.
 
     """
+    if root_schema is None:
+        root_schema = model_schema
     paths = set()
+    # $ref resolution
+    if "$ref" in model_schema:
+        ref: str = model_schema["$ref"]
+        # We only expect refs into $defs for Pydantic models
+        if ref.startswith("#/$defs/"):
+            type_name = ref.split("/")[-1]  # "SMALState"
+            defs = root_schema.get("$defs") or root_schema.get("definitions") or {}
+            subschema = defs.get(type_name)
+            if subschema is None:
+                # If we can't resolve it, just treat this as a leaf to avoid KeyError
+                if prefix:
+                    paths.add(prefix)
+                return paths
+            return extract_paths_from_model_schema(subschema, prefix, root_schema)
+        else:
+            # Unknown ref shape; treat as leaf
+            if prefix:
+                paths.add(prefix)
+            return paths
     schema_type = model_schema.get("type")
+    # Objects
     if schema_type == "object":
         props = model_schema.get("properties", {})
         for name, subschema in props.items():
             new_prefix = f"{prefix}.{name}" if prefix else name
-            paths |= extract_paths_from_model_schema(subschema, new_prefix)
+            paths |= extract_paths_from_model_schema(subschema, new_prefix, root_schema)
         return paths
+    # Arrays
     if schema_type == "array":
         items = model_schema.get("items", {})
         new_prefix = f"{prefix}[]" if prefix else "[]"
-        return extract_paths_from_model_schema(items, new_prefix)
+        return extract_paths_from_model_schema(items, new_prefix, root_schema)
+    # anyOf / oneOf
     if "anyOf" in model_schema:
         for option in model_schema["anyOf"]:
-            paths |= extract_paths_from_model_schema(option, prefix)
+            paths |= extract_paths_from_model_schema(option, prefix, root_schema)
         return paths
     if "oneOf" in model_schema:
         for option in model_schema["oneOf"]:
-            paths |= extract_paths_from_model_schema(option, prefix)
+            paths |= extract_paths_from_model_schema(option, prefix, root_schema)
         return paths
+    # Primitives
     if schema_type in {"string", "number", "integer", "boolean", "null"}:
         paths.add(prefix)
         return paths
+    # Fallback
     if prefix:
         paths.add(prefix)
     return paths
 
 
-def extract_template_column(lines: list[str], lineno: int, variable_name: str) -> int:
-    if 1 <= lineno <= len(lines):
-        text_line = lines[lineno - 1]
-        colno = text_line.find(variable_name)
-        return colno if colno != -1 else 0
-    return 0
-
-
-def extract_template_variables(env: Environment, template_source: str) -> set[str]:
-    """Extracts the set of variable names used in a Jinja2 template.
-
-    Args:
-        env (Environment): The Jinja2 environment.
-        template_source (str): The source code of the template.
-
-    Returns:
-        set[str]: A set of variable names used in the template.
-
-    """
-    ast = env.parse(template_source)
-    return meta.find_undeclared_variables(ast)
-
-
-def generate_allowed_variable_paths_from_model(model: type[BaseModel]) -> set[str]:
+def generate_allowed_variable_paths_from_model(model: type[BaseModel], root: str = "smal") -> set[str]:
     """Generates a set of allowed variable paths for a given Pydantic model by analyzing its JSON schema.
 
     Args:
@@ -126,75 +300,5 @@ def generate_allowed_variable_paths_from_model(model: type[BaseModel]) -> set[st
 
     """
     model_schema = model.model_json_schema()
-    return extract_paths_from_model_schema(model_schema)
-
-
-def validate_template_macros(
-    env: Environment,
-    template_source: str,
-    template_name: str,
-    result: SMALValidationResult | None = None,
-) -> SMALValidationResult:
-    ast = env.parse(template_source)
-    result = result or SMALValidationResult(template_name)
-    for template_macro_ref in walk_template_macros(ast, template_source):
-        if not template_macro_ref.name:
-            continue
-        try:
-            env.get_template(template_macro_ref.name)
-        except TemplateNotFound:
-            result.add_issue(
-                Severity.ERROR,
-                f"Macro template '{template_macro_ref.name}' not found.",
-                (template_macro_ref.line, template_macro_ref.col),
-                code="MACRO_TEMPLATE_NOT_FOUND",
-            )
-    return result
-
-
-def validate_template_variables(
-    env: Environment,
-    template_source: str,
-    template_name: str,
-    allowed_paths: set[str],
-    result: SMALValidationResult | None = None,
-) -> SMALValidationResult:
-    result = result or SMALValidationResult(template_name)
-
-    def is_allowed_symbol(symbol: str) -> bool:
-        if symbol in allowed_paths:
-            return True
-        prefix_dot = symbol + "."
-        prefix_arr = symbol + "[]"
-        for p in allowed_paths:
-            if p.startswith(prefix_dot) or p.startswith(prefix_arr):
-                return True
-        return False
-
-    ast = env.parse(template_source)
-    for template_var_ref in walk_template_variables(ast, template_source):
-        if not is_allowed_symbol(template_var_ref.name):
-            result.add_issue(
-                Severity.ERROR,
-                f"Unknown variable '{template_var_ref.name}' used in template '{template_name}'",
-                location=(template_var_ref.line, template_var_ref.col),
-                code="UNDEFINED_VARIABLE",
-            )
-    return result
-
-
-def walk_template_macros(ast: nodes.Template, template_source: str) -> Iterator[TemplateMacroRef]:
-    lines = template_source.splitlines()
-    for node in ast.find_all(nodes.FromImport):
-        template_ref = node.template.value if isinstance(node.template, nodes.Const) else None
-        macro_colno = extract_template_column(lines, node.lineno, "import")
-        yield TemplateMacroRef(template_ref, node.lineno, macro_colno)
-
-
-def walk_template_variables(ast: nodes.Template, template_source: str) -> Iterator[TemplateVariableRef]:
-    lines = template_source.splitlines()
-    for node in ast.find_all(nodes.Name):
-        variable_name = node.name
-        variable_lineno = node.lineno
-        variable_colno = extract_template_column(lines, variable_lineno, variable_name)
-        yield TemplateVariableRef(variable_name, variable_lineno, variable_colno)
+    extracted_model_paths = extract_paths_from_model_schema(model_schema)
+    return {f"{root}.{path}" for path in extracted_model_paths}

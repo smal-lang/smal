@@ -6,10 +6,8 @@ import typer
 from smal.cli.commands import generate_code_cmd_builtin, generate_diagram_cmd, install_graphviz_app
 from smal.cli.commands.code import generate_code_cmd_custom
 from smal.cli.commands.helpers import echo_table
-from smal.cli.commands.validate import generate_allowed_variable_paths_from_model, validate_template_macros, validate_template_variables
-from smal.codegen.code_generator import SMALCodeGenerator
+from smal.cli.commands.validate import JinjaTemplateValidator
 from smal.codegen.smal_templates import TemplateRegistry, is_valid_smal_template
-from smal.schemas.smal_file import SMALFile
 
 app = typer.Typer(help="SMAL = State Machine Abstraction Language CLI")
 app.add_typer(install_graphviz_app, name="install-graphviz")
@@ -92,20 +90,9 @@ def diagram_cmd(
 def validate_cmd(
     template_path: Path = typer.Argument(..., exists=True, file_okay=True, dir_okay=False, readable=True, help="Path to the Jinja2 template file."),
 ) -> None:
-    generator = SMALCodeGenerator()
-    env, template = generator.load_external_template(template_path)
-    allowed_variable_paths = generate_allowed_variable_paths_from_model(SMALFile)
-    if env.loader is None or template.name is None:
-        raise RuntimeError("Jinja2 Environment loader is not configured.")
-    source, _, _ = env.loader.get_source(env, template.name)
-    validation_result = validate_template_variables(env, source, template.name, allowed_variable_paths)
-    validation_result = validate_template_macros(env, source, template.name, result=validation_result)
-    if validation_result.ok:
-        typer.echo(f"Template '{template_path}' is valid! No issues found.")
-    else:
-        typer.echo(f"Template '{template_path}' has {len(validation_result.issues)} issue(s):")
-        for issue in validation_result.issues:
-            typer.echo(f"- [{issue.severity.value.upper()}] {issue.message} (Location: {issue.location}, Code: {issue.code})")
+    validator = JinjaTemplateValidator(template_path)
+    validation_result = validator.validate()
+    validation_result.echo_report(template_path)
 
 
 if __name__ == "__main__":
