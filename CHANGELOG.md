@@ -1,128 +1,85 @@
 # CHANGELOG
 
 
-## v0.1.11 (2026-03-30)
+## v0.1.0 (2026-03-30)
 
 ### Bug Fixes
 
-- Only build new version
-  ([`2c95226`](https://github.com/smal-lang/smal/commit/2c952268b2dfa189d73e2388c5165103ff49fc98))
-
-
-## v0.1.10 (2026-03-30)
-
-### Bug Fixes
-
-- Update badge links in README.md
-  ([`f27b0c2`](https://github.com/smal-lang/smal/commit/f27b0c2494662ba0d6215db449315304c6146bf0))
-
-
-## v0.1.9 (2026-03-30)
-
-### Bug Fixes
-
-- Update project links and badges in README
-  ([`b4bb4a3`](https://github.com/smal-lang/smal/commit/b4bb4a3434132731ecb6d7580a3d15dfcb23c1aa))
-
-
-## v0.1.8 (2026-03-30)
-
-### Bug Fixes
-
-- Correct commit message
-  ([`095e13f`](https://github.com/smal-lang/smal/commit/095e13f6e6f899f728685de1c090516822be2570))
-
-
-## v0.1.7 (2026-03-30)
-
-### Bug Fixes
-
-- Working on last bit
-  ([`09f8858`](https://github.com/smal-lang/smal/commit/09f8858216254fe272a4f2e27822eae84f7f7975))
-
-
-## v0.1.6 (2026-03-30)
-
-### Bug Fixes
-
-- Testing debug logs
-  ([`4e6bbe0`](https://github.com/smal-lang/smal/commit/4e6bbe0273d990e787da38986f8112b72711783d))
-
-
-## v0.1.5 (2026-03-30)
-
-### Bug Fixes
+- Add build cmd ([#17](https://github.com/aetheric-sh/smal/pull/17),
+  [`719dece`](https://github.com/aetheric-sh/smal/commit/719dece366d23c602263215e5efa978470ad60ae))
 
 - Add debug logs to workflow
-  ([`9651bf0`](https://github.com/smal-lang/smal/commit/9651bf0c5254fad1f2e94d29e53450205e659eed))
+  ([`9651bf0`](https://github.com/aetheric-sh/smal/commit/9651bf0c5254fad1f2e94d29e53450205e659eed))
 
 - Another workflow update
-  ([`854afa1`](https://github.com/smal-lang/smal/commit/854afa168fb4a96a3299d3704a62986c47af7a29))
+  ([`854afa1`](https://github.com/aetheric-sh/smal/commit/854afa168fb4a96a3299d3704a62986c47af7a29))
+
+- Another workflow update ([#18](https://github.com/aetheric-sh/smal/pull/18),
+  [`2fdcdaf`](https://github.com/aetheric-sh/smal/commit/2fdcdaf998c5f75aaaa903e98a18a4f0fbc7a896))
 
 - Bump version
-  ([`38c8506`](https://github.com/smal-lang/smal/commit/38c850661f28e244da9ac73739bb877612e83251))
+  ([`38c8506`](https://github.com/aetheric-sh/smal/commit/38c850661f28e244da9ac73739bb877612e83251))
+
+- Correct commit message
+  ([`095e13f`](https://github.com/aetheric-sh/smal/commit/095e13f6e6f899f728685de1c090516822be2570))
+
+- Give semantic release a PAT ([#12](https://github.com/aetheric-sh/smal/pull/12),
+  [`b652668`](https://github.com/aetheric-sh/smal/commit/b6526687450b02cb496aeace410a724997f81fed))
 
 - Install uv during release
-  ([`8ce49eb`](https://github.com/smal-lang/smal/commit/8ce49eb083b96402d7454e8302bffafdb116c6b5))
+  ([`8ce49eb`](https://github.com/aetheric-sh/smal/commit/8ce49eb083b96402d7454e8302bffafdb116c6b5))
 
-- Re-add outputs
-  ([`8dfa8e2`](https://github.com/smal-lang/smal/commit/8dfa8e2c159cea00e5bd53fcd5d721a88d8216e9))
+- One more workflow change ([#13](https://github.com/aetheric-sh/smal/pull/13),
+  [`4b50c6d`](https://github.com/aetheric-sh/smal/commit/4b50c6d3084621611bc64f55c8e28ca06f376112))
 
-- Update readme
-  ([`6f15046`](https://github.com/smal-lang/smal/commit/6f15046e869af10e0745bc48ba7478b8fe087d2c))
-
-- Update uv build cmd ([#19](https://github.com/smal-lang/smal/pull/19),
-  [`c751e09`](https://github.com/smal-lang/smal/commit/c751e09beb3274dc2e63bf2e239ff4f7ad79aa27))
-
-
-## v0.1.4 (2026-03-30)
-
-### Bug Fixes
+- Only build new version
+  ([`2c95226`](https://github.com/aetheric-sh/smal/commit/2c952268b2dfa189d73e2388c5165103ff49fc98))
 
 - Pypi not seeing dist
-  ([`7fc3d78`](https://github.com/smal-lang/smal/commit/7fc3d78b6d18ca5fe7cf5ee1c690e058d838a766))
+  ([`7fc3d78`](https://github.com/aetheric-sh/smal/commit/7fc3d78b6d18ca5fe7cf5ee1c690e058d838a766))
+
+- Re-add outputs
+  ([`8dfa8e2`](https://github.com/aetheric-sh/smal/commit/8dfa8e2c159cea00e5bd53fcd5d721a88d8216e9))
+
+- Test 13 ([#14](https://github.com/aetheric-sh/smal/pull/14),
+  [`ac83ece`](https://github.com/aetheric-sh/smal/commit/ac83ecec996502570dac56cd567d0d158eb77efa))
+
+- Test 14 ([#15](https://github.com/aetheric-sh/smal/pull/15),
+  [`7fbd1f7`](https://github.com/aetheric-sh/smal/commit/7fbd1f727da990d218dfbabf4447838b02abc7c5))
+
+- Test 15 ([#16](https://github.com/aetheric-sh/smal/pull/16),
+  [`989d8d0`](https://github.com/aetheric-sh/smal/commit/989d8d0d683e0a984a7e9c45cf97e7e0efeca975))
+
+- Testing debug logs
+  ([`4e6bbe0`](https://github.com/aetheric-sh/smal/commit/4e6bbe0273d990e787da38986f8112b72711783d))
+
+- Update badge links in README.md
+  ([`f27b0c2`](https://github.com/aetheric-sh/smal/commit/f27b0c2494662ba0d6215db449315304c6146bf0))
+
+- Update project links and badges in README
+  ([`b4bb4a3`](https://github.com/aetheric-sh/smal/commit/b4bb4a3434132731ecb6d7580a3d15dfcb23c1aa))
+
+- Update pyproject.toml and workflow ([#11](https://github.com/aetheric-sh/smal/pull/11),
+  [`4cac6ba`](https://github.com/aetheric-sh/smal/commit/4cac6ba21b29cc02c4f84bd51ca595a56e122584))
+
+- Update readme
+  ([`6f15046`](https://github.com/aetheric-sh/smal/commit/6f15046e869af10e0745bc48ba7478b8fe087d2c))
+
+- Update uv build cmd ([#19](https://github.com/aetheric-sh/smal/pull/19),
+  [`c751e09`](https://github.com/aetheric-sh/smal/commit/c751e09beb3274dc2e63bf2e239ff4f7ad79aa27))
 
 - Uv build cmd
-  ([`a1defdd`](https://github.com/smal-lang/smal/commit/a1defdde438dc755de1412ea9497a29cf486d186))
+  ([`a1defdd`](https://github.com/aetheric-sh/smal/commit/a1defdde438dc755de1412ea9497a29cf486d186))
 
+- Working on last bit
+  ([`09f8858`](https://github.com/aetheric-sh/smal/commit/09f8858216254fe272a4f2e27822eae84f7f7975))
 
-## v0.1.3 (2026-03-30)
+### Features
 
-### Bug Fixes
+- Update readme.md ([#20](https://github.com/aetheric-sh/smal/pull/20),
+  [`d632baf`](https://github.com/aetheric-sh/smal/commit/d632baf968cdf7e23ef756493b613c0f11152ab4))
 
-- Another workflow update ([#18](https://github.com/smal-lang/smal/pull/18),
-  [`2fdcdaf`](https://github.com/smal-lang/smal/commit/2fdcdaf998c5f75aaaa903e98a18a4f0fbc7a896))
+* remove debugging line in workflow
 
-
-## v0.1.2 (2026-03-30)
-
-### Bug Fixes
-
-- Add build cmd ([#17](https://github.com/smal-lang/smal/pull/17),
-  [`719dece`](https://github.com/smal-lang/smal/commit/719dece366d23c602263215e5efa978470ad60ae))
-
-- One more workflow change ([#13](https://github.com/smal-lang/smal/pull/13),
-  [`4b50c6d`](https://github.com/smal-lang/smal/commit/4b50c6d3084621611bc64f55c8e28ca06f376112))
-
-- Test 13 ([#14](https://github.com/smal-lang/smal/pull/14),
-  [`ac83ece`](https://github.com/smal-lang/smal/commit/ac83ecec996502570dac56cd567d0d158eb77efa))
-
-- Test 14 ([#15](https://github.com/smal-lang/smal/pull/15),
-  [`7fbd1f7`](https://github.com/smal-lang/smal/commit/7fbd1f727da990d218dfbabf4447838b02abc7c5))
-
-- Test 15 ([#16](https://github.com/smal-lang/smal/pull/16),
-  [`989d8d0`](https://github.com/smal-lang/smal/commit/989d8d0d683e0a984a7e9c45cf97e7e0efeca975))
-
-
-## v0.1.1 (2026-03-30)
-
-### Bug Fixes
-
-- Give semantic release a PAT ([#12](https://github.com/smal-lang/smal/pull/12),
-  [`b652668`](https://github.com/smal-lang/smal/commit/b6526687450b02cb496aeace410a724997f81fed))
-
-- Update pyproject.toml and workflow ([#11](https://github.com/smal-lang/smal/pull/11),
-  [`4cac6ba`](https://github.com/smal-lang/smal/commit/4cac6ba21b29cc02c4f84bd51ca595a56e122584))
-
-
-## v0.1.0 (2026-03-29)
+- Update readme.md ([#20](https://github.com/aetheric-sh/smal/pull/20),
+  [`d632baf`](https://github.com/aetheric-sh/smal/commit/d632baf968cdf7e23ef756493b613c0f11152ab4))
