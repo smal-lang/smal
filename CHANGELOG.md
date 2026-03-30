@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.2.0 (2026-03-30)
+
+### Features
+
+- Update broken org links
+  ([`b859d1e`](https://github.com/aetheric-sh/smal/commit/b859d1e482bb9dc9e1c5c34fb329f54f13c33e5b))
+
+
 ## v0.1.0 (2026-03-30)
 
 ### Bug Fixes
