@@ -4,17 +4,20 @@ description: An example state machine created using SMAL, using inlined YAML syn
 states:
   - {name: FOO, type: initial}
   - {name: BAR, type: decision}
-  - {name: BAZ}
+  - {name: BAZ, substates: [{name: BAZ_I, type: initial}, BAZ_S, {name: BAZ_F, type: final}]}
   - {name: THUD}
   - {name: QUX, type: final}
-events: [A, B, C, D, E]
+events: [A, B, C, D, E, SSE_1, SSE_2, SSE_3]
 errors: [BOO, DOH, GAH]
 constants: {EXAMPLE_CONSTANT_A: 5, EXAMPLE_CONSTANT_B: 10, EXAMPLE_CONSTANT_C: 15}
 transitions:
   - {trigger_state: FOO, trigger_evt: A, action: handler_A, landing_state: BAR, landing_state_entry_evt: null}
-  - {trigger_state: BAR, trigger_evt: B, action: handler_B, landing_state: BAZ, landing_state_entry_evt: null}
+  - {trigger_state: BAR, trigger_evt: B, action: handler_B, landing_state: BAZ, landing_state_entry_evt: SSE_1}
   - {trigger_state: BAR, trigger_evt: C, action: handler_C, landing_state: THUD, landing_state_entry_evt: null}
-  - {trigger_state: BAZ, trigger_evt: D, action: handler_D, landing_state: QUX, landing_state_entry_evt: null}
+  - {trigger_state: BAZ, trigger_evt: SSE_1, action: handler_SSE_1, landing_state: BAZ_I, landing_state_entry_evt: null}
+  - {trigger_state: BAZ_I, trigger_evt: SSE_2, action: handler_SSE_2, landing_state: BAZ_S, landing_state_entry_evt: null}
+  - {trigger_state: BAZ_S, trigger_evt: SSE_3, action: handler_SSE_3, landing_state: BAZ_F, landing_state_entry_evt: D}
+  - {trigger_state: BAZ_F, trigger_evt: D, action: handler_D, landing_state: QUX, landing_state_entry_evt: null}
   - {trigger_state: THUD, trigger_evt: E, action: handler_E, landing_state: QUX, landing_state_entry_evt: null}
 debug:
   lang: c

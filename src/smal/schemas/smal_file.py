@@ -1,3 +1,5 @@
+from __future__ import annotations  # Until Python 3.14
+
 import logging
 from collections import Counter
 from pathlib import Path
@@ -29,7 +31,6 @@ class SMALFile(IdentifierValidationMixin, SemverValidationMixin, BaseModel):
     commands: list[SMALCommand] = Field(default_factory=list, description="Commands associated with this state machine, if any.")
     errors: list[SMALError] = Field(default_factory=list, description="Errors associated with this state machine, if any.")
     constants: dict[str, str | int] = Field(default_factory=dict, description="Constants to define for this state machine, if any.")
-    # messages: list[SMALMessage] = Field(default_factory=list, description="Messages associated with this state machine, if any.")
     transitions: list[SMALTransition] = Field(default_factory=list, description="State transitions associated with this state machine, if any.")
     enums: list[SMALEnum] = Field(default_factory=list, description="Enumerations to define for this state machine, if any.")
     structs: list[SMALStruct] = Field(default_factory=list, description="Structures to define for this state machine, if any.")
@@ -102,20 +103,35 @@ class SMALFile(IdentifierValidationMixin, SemverValidationMixin, BaseModel):
                 e.id = self.errors.index(e)
                 logging.debug("Machine<%s>: Auto-assigned ID %s to error '%s'.", self.machine, e.id, e.name)
         # Validate that all SMALTransition objects reference existing states, events, etc.
-        state_map: dict[str, SMALState] = {s.name: s for s in self.states}
+        state_map = self._flatten_states(self.states)
         evt_map: dict[str, SMALEvent] = {e.name: e for e in self.events}
         for transition in self.transitions:
             if transition.trigger_state not in state_map:
                 raise ValueError(f"Transition {transition} references unknown trigger state '{transition.trigger_state}'. Must be one of: {', '.join(state_map.keys())}")
-            if transition.trigger_evt not in evt_map:
-                raise ValueError(f"Transition {transition} references unknown trigger event '{transition.trigger_evt}'. Must be one of: {', '.join(evt_map.keys())}")
             if transition.landing_state not in state_map:
                 raise ValueError(f"Transition {transition} references unknown landing state '{transition.landing_state}'. Must be one of: {', '.join(state_map.keys())}")
-            if transition.landing_state_entry_evt is not None and transition.landing_state_entry_evt not in evt_map:
+            if transition.trigger_evt not in evt_map:
+                raise ValueError(f"Transition {transition} references unknown trigger event '{transition.trigger_evt}'. Must be one of: {', '.join(evt_map.keys())}")
+            if transition.landing_state_entry_evt and transition.landing_state_entry_evt not in evt_map:
                 raise ValueError(
                     f"Transition {transition} references unknown landing state entry event '{transition.landing_state_entry_evt}'. Must be one of: {', '.join(evt_map.keys())}"
                 )
         return self
+
+    @staticmethod
+    def _flatten_states(states: list[SMALState], prefix: str = "") -> dict[str, SMALState]:
+        flat = {}
+        for s in states:
+            if s.name in flat:
+                raise ValueError(f"Duplicate state name '{s.name}' found in nested states.")
+            flat[s.name] = s
+            if s.substates:
+                nested = SMALFile._flatten_states(s.substates)
+                for name, obj in nested.items():
+                    if name in flat:
+                        raise ValueError(f"Duplicate state name '{s.name}' found in nested states.")
+                    flat[name] = obj
+        return flat
 
     def to_file(
         self,
@@ -146,3 +162,6 @@ class SMALFile(IdentifierValidationMixin, SemverValidationMixin, BaseModel):
         model_data = yaml.safe_load(yaml_data)
         model = cls.model_validate(model_data)
         return model
+
+    def get_state(self, name: str) -> SMALState:
+        return next(s for s in self.states if s.name == name)

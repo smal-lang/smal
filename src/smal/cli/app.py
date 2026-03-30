@@ -1,5 +1,8 @@
+from __future__ import annotations  # Until Python 3.14
+
 import os
 from pathlib import Path
+from typing import Literal
 
 import typer
 from rich.console import Console
@@ -78,18 +81,16 @@ def code_cmd(
 @app.command(name="diagram", help="Generate an SVG state machine diagram from a SMAL file.")
 def diagram_cmd(
     smal_path: Path = typer.Argument(..., exists=True, file_okay=True, dir_okay=False, readable=True, help="Path to the input SMAL file."),
-    svg_output_dir: Path = typer.Argument(..., exists=True, file_okay=False, dir_okay=True, writable=True, help="Directory where the generated SVG diagram will be written."),
+    svg_output_dir: Path = typer.Argument(..., file_okay=False, dir_okay=True, writable=True, help="Directory where the generated SVG diagram will be written."),
     open: bool = typer.Option(False, "--open", "-o", help="Open the generated SVG after creation."),
     force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing SVG files if they already exist."),
     title: bool = typer.Option(True, "--title", "-t", help="Include the state machine title in the diagram."),
+    orientation: Literal["LR", "TB"] = typer.Option("LR", "--orientation", "-r", help="The orientation of the diagram, either LR (Left-Right) or TB (Top-Bottom)"),
 ) -> None:
-    generate_diagram_cmd(
-        smal_path=smal_path,
-        svg_output_dir=svg_output_dir,
-        open=open,
-        force=force,
-        title=title,
-    )
+    if not svg_output_dir.exists():
+        console.print(f"Created previously non-existent output directory for diagram: {svg_output_dir}")
+        svg_output_dir.mkdir(parents=True, exist_ok=True)
+    generate_diagram_cmd(smal_path=smal_path, svg_output_dir=svg_output_dir, open=open, force=force, title=title, orientation=orientation)
 
 
 @app.command(name="validate", help="Validate a custom Jinja2 template for use with SMAL code generation by checking for undefined variables and missing macro templates.")

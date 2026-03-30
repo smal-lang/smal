@@ -7,6 +7,10 @@ states:
   - name: BAR
     type: decision
   - name: BAZ
+    substates:
+      - {name: BAZ_I, type: initial}
+      - {name: BAZ_S}
+      - {name: BAZ_F, type: final}
   - name: THUD
   - name: QUX
     type: final
@@ -16,6 +20,9 @@ events:
   - C
   - D
   - E
+  - SSE_1
+  - SSE_2
+  - SSE_3
 errors:
   - BOO
   - DOH
@@ -34,13 +41,28 @@ transitions:
     trigger_evt: B
     action: handler_B
     landing_state: BAZ
-    landing_state_entry_evt: null
+    landing_state_entry_evt: SSE_1
   - trigger_state: BAR
     trigger_evt: C
     action: handler_C
     landing_state: THUD
     landing_state_entry_evt: null
   - trigger_state: BAZ
+    trigger_evt: SSE_1
+    action: handler_SSE_1
+    landing_state: BAZ_I
+    landing_state_entry_evt: null
+  - trigger_state: BAZ_I
+    trigger_evt: SSE_2
+    action: handler_SSE_2
+    landing_state: BAZ_S
+    landing_state_entry_evt: null
+  - trigger_state: BAZ_S
+    trigger_evt: SSE_3
+    action: handler_SSE_3
+    landing_state: BAZ_F
+    landing_state_entry_evt: D
+  - trigger_state: BAZ_F
     trigger_evt: D
     action: handler_D
     landing_state: QUX
