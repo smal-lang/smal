@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.1.7 (2026-03-30)
+
+### Bug Fixes
+
+- Working on last bit
+  ([`09f8858`](https://github.com/smal-lang/smal/commit/09f8858216254fe272a4f2e27822eae84f7f7975))
+
+
 ## v0.1.6 (2026-03-30)
 
 ### Bug Fixes
