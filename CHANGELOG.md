@@ -1,9 +1,20 @@
 # CHANGELOG
 
 
+## v0.1.6 (2026-03-30)
+
+### Bug Fixes
+
+- Testing debug logs
+  ([`4e6bbe0`](https://github.com/smal-lang/smal/commit/4e6bbe0273d990e787da38986f8112b72711783d))
+
+
 ## v0.1.5 (2026-03-30)
 
 ### Bug Fixes
+
+- Add debug logs to workflow
+  ([`9651bf0`](https://github.com/smal-lang/smal/commit/9651bf0c5254fad1f2e94d29e53450205e659eed))
 
 - Another workflow update
   ([`854afa1`](https://github.com/smal-lang/smal/commit/854afa168fb4a96a3299d3704a62986c47af7a29))
