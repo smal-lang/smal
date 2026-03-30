@@ -47,5 +47,5 @@ Add custom generators, validators, or analysis tools.
 # 📦 Installation
 
 ```bash
-pip install smal
+pip install smal-lang
 ```
