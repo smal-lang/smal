@@ -2,8 +2,8 @@
   <img src="https://raw.githubusercontent.com/jbaileydev/smal/master/src/assets/smal_logo.svg" width="300">
 </h1><br>
 
-[![Python Versions](https://img.shields.io/pypi/pyversions/smal.svg)](https://pypi.org/project/smal-lang/)
-[![PyPI Downloads](https://img.shields.io/pypi/dm/smal.svg?label=PyPI%20downloads)](https://pypi.org/project/smal-lang/)
+[![Python Versions](https://img.shields.io/pypi/pyversions/smal-lang.svg)](https://pypi.org/project/smal-lang/)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/smal-lang.svg?label=PyPI%20downloads)](https://pypi.org/project/smal-lang/)
 [![License](https://img.shields.io/badge/license-%20%20GNU%20GPLv3%20-green)](LICENSE)
 <!-- [![CI Status](https://github.com/smal-lang/smal/actions/workflows/ci.yml/badge.svg)](https://github.com/smal-lang/smal/actions) -->
 [![Code Styling](https://img.shields.io/badge/style-ruff-purple?logo=ruff&logoColor=white)](https://github.com/smal-lang/smal)
