@@ -14,3 +14,25 @@ class Transition(BaseModel):
 
     def __repr__(self) -> str:
         return f"({self.src_state}, {self.evt}, [{', '.join(self.actions)}], {self.tgt_state}, {self.tgt_entry_evt})"
+
+    def __str__(self) -> str:
+        return self.__repr__()
+
+
+class IllegalTransitionError(ValueError):
+    def __init__(self, message: str, transition: Transition | None = None, state_machine_name: str | None = None) -> None:
+        details = []
+        if transition is not None:
+            details.append(f"Transition: {transition}")
+            details.append(f"Source state: {transition.src_state}")
+            details.append(f"Target state: {transition.tgt_state}")
+            details.append(f"Event: {transition.evt}")
+            if transition.tgt_entry_evt:
+                details.append(f"Target entry event: {transition.tgt_entry_evt}")
+
+        if details:
+            message = f"{message}\n" + "\n".join(details)
+
+        if state_machine_name:
+            message = f"StateMachine<{state_machine_name}>: {message}"
+        super().__init__(message)

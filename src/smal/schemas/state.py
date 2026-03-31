@@ -119,6 +119,9 @@ class State(IdentifierValidationMixin, BaseModel):
                 raise ValueError(
                     f"State<{self.name}> defines substates but is not marked as a composite state. Found '{self.type.value}'. Remove substates or redefine as composite to resolve."
                 )
+            # Ensure all substates are assigned a parent name
+            for ss in self.substates:
+                ss.set_parent(self)
         return self
 
     @model_validator(mode="after")
@@ -156,6 +159,9 @@ class State(IdentifierValidationMixin, BaseModel):
         helper(self, [])
         return cycles
 
+    def set_parent(self, parent: State) -> None:
+        self._parent_name = parent.name
+
     @property
     def is_composite(self) -> bool:
         """Get whether or not this state is composite, e.g. it contains substates.
@@ -165,3 +171,17 @@ class State(IdentifierValidationMixin, BaseModel):
 
         """
         return self.type == StateType.COMPOSITE
+
+
+class IllegalStateError(ValueError):
+    def __init__(self, message: str, state: State | None = None, state_machine_name: str | None = None) -> None:
+        details = []
+        if state is not None:
+            details.append(f"State: {state.name}")
+            details.append(f"Type: {state.type.value}")
+            details.append(f"Substate: {state.is_substate} (parent: {state.parent_name})")
+        if details:
+            message = f"{message}\n" + "\n".join(details)
+        if state_machine_name:
+            message = f"StateMachine<{state_machine_name}>: {message}"
+        super().__init__(message)

@@ -13,9 +13,9 @@ from smal.schemas.command import Command
 from smal.schemas.enumeration import Enumeration
 from smal.schemas.error import Error
 from smal.schemas.event import Event
-from smal.schemas.state import State
+from smal.schemas.state import IllegalStateError, State, StateType
 from smal.schemas.struct import Struct
-from smal.schemas.transition import Transition
+from smal.schemas.transition import IllegalTransitionError, Transition
 from smal.schemas.utilities import IdentifierValidationMixin, SemverValidationMixin
 from smal.utilities import constants as SMALConstants
 
@@ -198,12 +198,43 @@ class StateMachine(IdentifierValidationMixin, SemverValidationMixin, BaseModel):
 
     @model_validator(mode="after")
     def validate_transition_pseudostate_legality(self) -> Self:
-        # Cannot transition into a non-composite initial pseudostate
-        # Cannot transition out of a final or terminal pseudostate
-        # Entry/Exit pseudostates must be inside composite states
-        # Choice/Junction pseudostate must have >= 2 outgoing transitions
-        # Join pseudostate must have >= 2 incoming transitions and 1 outgoing transition
-        # Fork pseudostate must have >= 2 outgoing transitions and 1 incoming transition
+        for t in self.transitions:
+            src = self.get_state(t.src_state)
+            tgt = self.get_state(t.tgt_state)
+            # Cannot transition into a non-composite initial pseudostate
+            if tgt.type == StateType.INITIAL and not tgt.is_substate:
+                raise IllegalTransitionError("Cannot transition into a non-composite initial state.", t, self.machine)
+            # Cannot transition out of a final or terminal pseudostate
+            if src.type in {StateType.FINAL, StateType.TERMINAL}:
+                raise IllegalTransitionError("Cannot transition out of a Final or Terminal pseudostate.", t, self.machine)
+        return self
+
+    @model_validator(mode="after")
+    def validate_pseudostate_semantics(self) -> Self:
+        flattened_states = self._flatten_states(self.states)
+        for s in flattened_states.values():
+            # Entry/Exit pseudostates must be inside composite states
+            if s.type in {StateType.ENTRY, StateType.EXIT} and not s.is_substate:
+                raise IllegalStateError("Entry / Exit pseudostates must be children of composite states.", s, self.machine)
+            incoming_transitions = self.get_incoming_transitions(s)
+            num_incoming_transitions = len(incoming_transitions)
+            outgoing_transitions = self.get_outgoing_transitions(s)
+            num_outgoing_transitions = len(outgoing_transitions)
+            # Choice/Junction pseudostate must have >= 2 outgoing transitions
+            if s.type in {StateType.CHOICE, StateType.JUNCTION} and num_incoming_transitions < 2:
+                raise IllegalStateError("Choice / Junction pseudostates must have >=2 outgoing transitions.", s, self.machine)
+            # Join pseudostate must have >= 2 incoming transitions and 1 outgoing transition
+            if s.type == StateType.JOIN:
+                if num_incoming_transitions < 2:
+                    raise IllegalStateError("Join pseudostates must have >= 2 incoming transitions.", s, self.machine)
+                if num_outgoing_transitions != 1:
+                    raise IllegalStateError("Join pseudostates must have exactly 1 outgoing transition.", s, self.machine)
+            # Fork pseudostate must have >= 2 outgoing transitions and 1 incoming transition
+            if s.type == StateType.FORK:
+                if num_incoming_transitions != 1:
+                    raise IllegalStateError("Fork pseudostates must have exactly 1 incoming transition.", s, self.machine)
+                if num_outgoing_transitions < 2:
+                    raise IllegalStateError("Fork pseudostates must have >= 2 outgoing transitions.", s, self.machine)
         return self
 
     @model_validator(mode="after")
@@ -281,6 +312,12 @@ class StateMachine(IdentifierValidationMixin, SemverValidationMixin, BaseModel):
         model_data = self.model_dump(exclude_unset=exclude_unset, exclude_defaults=exclude_defaults, exclude_none=exclude_none, exclude_computed_fields=exclude_computed_fields)
         yaml_data = yaml.safe_dump(model_data, sort_keys=sort_keys, indent=indent)
         path.write_text(yaml_data, encoding="utf-8")
+
+    def get_incoming_transitions(self, state: State) -> list[Transition]:
+        return []
+
+    def get_outgoing_transitions(self, state: State) -> list[Transition]:
+        return []
 
     @staticmethod
     def _flatten_states(states: list[State], prefix: str = "") -> dict[str, State]:
