@@ -6,14 +6,14 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from typing_extensions import Self
 
 from smal.codegen.target_primitive import get_target_primitive
-from smal.schemas.smal_bitfield import SMALBitField
-from smal.schemas.smal_enum import SMALEnum
+from smal.schemas.bit_field import BitField
+from smal.schemas.enumeration import Enumeration
 from smal.schemas.utilities import IdentifierValidationMixin, PrimitiveValidationMixin
 from smal.smal_primitive import SMALPrimitive
 from smal.utilities import constants as SMALConstants
 
 
-class SMALStructField(IdentifierValidationMixin, PrimitiveValidationMixin, BaseModel):
+class StructField(IdentifierValidationMixin, PrimitiveValidationMixin, BaseModel):
     IDENTIFIER_FIELDS: ClassVar[tuple[str]] = ("name",)
     TYPE_FIELDS: ClassVar[tuple[str]] = ("type",)
 
@@ -21,7 +21,7 @@ class SMALStructField(IdentifierValidationMixin, PrimitiveValidationMixin, BaseM
     type: str = Field(..., description="The type of the debugging field's data, e.g. uint8, uint16, enum:state, struct:Foo, etc.")
     offset_bytes: int | None = Field(default=None, description="The offset of this debugging field within its parent structure in bytes. If None, automatically calculated.")
     length_elements: int | None = Field(default=None, description="Length of the field in elements, if it is an array.")
-    bitfields: list[SMALBitField] | None = Field(default=None, description="Bit fields associated with this debug field, if this debug field is a bitfield.")
+    bitfields: list[BitField] | None = Field(default=None, description="Bit fields associated with this debug field, if this debug field is a bitfield.")
     endianness: Literal["big", "little"] = Field(default="little", description="Endianness of this debug field.")
 
     @field_validator("offset_bytes")
@@ -31,26 +31,14 @@ class SMALStructField(IdentifierValidationMixin, PrimitiveValidationMixin, BaseM
         return v
 
 
-class SMALNestedStruct(IdentifierValidationMixin, BaseModel):
+class Struct(IdentifierValidationMixin, BaseModel):
     IDENTIFIER_FIELDS: ClassVar[tuple[str]] = ("name",)
-
     name: str = Field(..., description="The name of the structure.")
-    size_bytes: int = Field(..., description="The size of the entire structure in bytes.")
-    layout: list[SMALStructField] = Field(..., description="Fields of the structure.")
-
-    @model_validator(mode="after")
-    def validate_struct(self) -> Self:
-        if self.size_bytes <= 0:
-            raise ValueError(f"struct {self.name}: size_bytes must be > 0")
-        return self
-
-
-class SMALStruct(BaseModel):
     lang: str = Field(..., description="The language this struct will be defined in, e.g., c, cpp, rust, etc.")
     size_bytes: int = Field(..., description="The size of the entire structure in bytes.")
-    layout: list[SMALStructField] = Field(..., description="The layout of the structure, defined by fields.")
-    nested_structs: list[SMALNestedStruct] = Field(default_factory=list, description="Nested structures that are utilized in this structure, if any.")
-    enums: list[SMALEnum] = Field(default_factory=list, description="Enumerations defined for fields of the structure, if any.")
+    layout: list[StructField] = Field(..., description="The layout of the structure, defined by fields.")
+    substructs: list[Struct] = Field(default_factory=list, description="Nested structures that are utilized in this structure, if any.")
+    enums: list[Enumeration] = Field(default_factory=list, description="Enumerations defined for fields of the structure, if any.")
 
     @field_validator("lang")
     def validate_lang(cls, v: str) -> str:
@@ -62,8 +50,8 @@ class SMALStruct(BaseModel):
     def validate_layout(self) -> Self:
         if self.size_bytes <= 0:
             raise ValueError("debug.size_bytes must be > 0")
-        struct_map: dict[str, SMALNestedStruct] = {s.name: s for s in self.nested_structs}
-        enum_map: dict[str, SMALEnum] = {e.name: e for e in self.enums}
+        struct_map: dict[str, Struct] = {s.name: s for s in self.substructs}
+        enum_map: dict[str, Enumeration] = {e.name: e for e in self.enums}
         current_offset_bytes = 0
         ranges: list[tuple[int, int, str]] = []  # (start, end, name)
         for field in self.layout:
@@ -76,7 +64,7 @@ class SMALStruct(BaseModel):
                     elem_size = 1  # Enums default to uint8
                 case SMALPrimitive.STRUCT:
                     if base not in struct_map:
-                        raise ValueError(f"Field {field.name}: struct type '{base}' not defined in debug.nested_structs")
+                        raise ValueError(f"Field {field.name}: struct type '{base}' not defined in debug.substructs")
                     elem_size = struct_map[base].size_bytes
                 case _:
                     lang_local_primitive = get_target_primitive(kind, self.lang)

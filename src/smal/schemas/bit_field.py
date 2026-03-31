@@ -7,7 +7,9 @@ from pydantic import BaseModel, Field, field_validator
 from smal.schemas.utilities import IdentifierValidationMixin
 
 
-class SMALBitField(IdentifierValidationMixin, BaseModel):
+class BitField(IdentifierValidationMixin, BaseModel):
+    """Schema defining an individual field within a bitfield. Not to be confused with the bitfield itself."""
+
     IDENTIFIER_FIELDS: ClassVar[tuple[str]] = ("name",)
 
     name: str = Field(..., description="The name of the bit field (not to be confused with bitfield).")

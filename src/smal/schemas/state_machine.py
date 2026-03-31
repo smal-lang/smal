@@ -7,69 +7,71 @@ from typing import Any, ClassVar
 
 import yaml
 from pydantic import BaseModel, Field, field_validator, model_validator
-from typing_extensions import Self
+from typing_extensions import Self, TypeAlias
 
-from smal.schemas.smal_command import SMALCommand
-from smal.schemas.smal_enum import SMALEnum
-from smal.schemas.smal_error import SMALError
-from smal.schemas.smal_event import SMALEvent
-from smal.schemas.smal_state import SMALState
-from smal.schemas.smal_struct import SMALStruct
-from smal.schemas.smal_transition import SMALTransition
+from smal.schemas.command import Command
+from smal.schemas.enumeration import Enumeration
+from smal.schemas.error import Error
+from smal.schemas.event import Event
+from smal.schemas.state import State
+from smal.schemas.struct import Struct
+from smal.schemas.transition import Transition
 from smal.schemas.utilities import IdentifierValidationMixin, SemverValidationMixin
 from smal.utilities import constants as SMALConstants
 
 
-class SMALFile(IdentifierValidationMixin, SemverValidationMixin, BaseModel):
+class StateMachine(IdentifierValidationMixin, SemverValidationMixin, BaseModel):
+    """Schema defining a SMAL state machine, defined by a .smal file."""
+
     IDENTIFIER_FIELDS: ClassVar[tuple[str]] = ("machine",)
     SEMVER_FIELDS: ClassVar[tuple[str]] = ("version",)
 
     machine: str = Field(..., description="Name of this state machine.")
     version: str = Field(..., description="Semantic version (major.minor.patch) of this state machine.")
-    states: list[SMALState] = Field(..., description="States associated with this state machine.")
-    events: list[SMALEvent] = Field(default_factory=list, description="Events associated with this state machine, if any.")
-    commands: list[SMALCommand] = Field(default_factory=list, description="Commands associated with this state machine, if any.")
-    errors: list[SMALError] = Field(default_factory=list, description="Errors associated with this state machine, if any.")
+    states: list[State] = Field(..., description="States associated with this state machine.")
+    events: list[Event] = Field(default_factory=list, description="Events associated with this state machine, if any.")
+    commands: list[Command] = Field(default_factory=list, description="Commands associated with this state machine, if any.")
+    errors: list[Error] = Field(default_factory=list, description="Errors associated with this state machine, if any.")
     constants: dict[str, str | int] = Field(default_factory=dict, description="Constants to define for this state machine, if any.")
-    transitions: list[SMALTransition] = Field(default_factory=list, description="State transitions associated with this state machine, if any.")
-    enums: list[SMALEnum] = Field(default_factory=list, description="Enumerations to define for this state machine, if any.")
-    structs: list[SMALStruct] = Field(default_factory=list, description="Structures to define for this state machine, if any.")
-    debug: SMALStruct | None = Field(default=None, description="Debugging structure associated with this state machine, if any.")
+    transitions: list[Transition] = Field(default_factory=list, description="State transitions associated with this state machine, if any.")
+    enums: list[Enumeration] = Field(default_factory=list, description="Enumerations to define for this state machine, if any.")
+    structs: list[Struct] = Field(default_factory=list, description="Structures to define for this state machine, if any.")
+    debug: Struct | None = Field(default=None, description="Debugging structure associated with this state machine, if any.")
     description: str | None = Field(default=None, description="Description of the state machine.")
     metadata: dict[str, Any] = Field(default_factory=dict, description="Any arbitrary metadata you want to make available to code generation templates.")
 
     @field_validator("states", mode="before")
-    def expand_short_form_states(cls, v: list[dict | str]) -> list[SMALState]:
+    def expand_short_form_states(cls, v: list[dict | str]) -> list[State]:
         expanded_states = []
         for item in v:
             if isinstance(item, str):
-                expanded_states.append(SMALState(name=item))
+                expanded_states.append(State(name=item))
             elif isinstance(item, dict):
-                expanded_states.append(SMALState.model_validate(item))
+                expanded_states.append(State.model_validate(item))
             else:
                 raise ValueError(f"Invalid state definition: {item}. Must be either a string or a dictionary.")
         return expanded_states
 
     @field_validator("events", mode="before")
-    def expand_short_form_events(cls, v: list[dict | str]) -> list[SMALEvent]:
+    def expand_short_form_events(cls, v: list[dict | str]) -> list[Event]:
         expanded_events = []
         for item in v:
             if isinstance(item, str):
-                expanded_events.append(SMALEvent(name=item))
+                expanded_events.append(Event(name=item))
             elif isinstance(item, dict):
-                expanded_events.append(SMALEvent.model_validate(item))
+                expanded_events.append(Event.model_validate(item))
             else:
                 raise ValueError(f"Invalid event definition: {item}. Must be either a string or a dictionary.")
         return expanded_events
 
     @field_validator("errors", mode="before")
-    def expand_short_form_errors(cls, v: list[dict | str]) -> list[SMALError]:
+    def expand_short_form_errors(cls, v: list[dict | str]) -> list[Error]:
         expanded_errors = []
         for item in v:
             if isinstance(item, str):
-                expanded_errors.append(SMALError(name=item))
+                expanded_errors.append(Error(name=item))
             elif isinstance(item, dict):
-                expanded_errors.append(SMALError.model_validate(item))
+                expanded_errors.append(Error.model_validate(item))
             else:
                 raise ValueError(f"Invalid error definition: {item}. Must be either a string or a dictionary.")
         return expanded_errors
@@ -104,7 +106,7 @@ class SMALFile(IdentifierValidationMixin, SemverValidationMixin, BaseModel):
                 logging.debug("Machine<%s>: Auto-assigned ID %s to error '%s'.", self.machine, e.id, e.name)
         # Validate that all SMALTransition objects reference existing states, events, etc.
         state_map = self._flatten_states(self.states)
-        evt_map: dict[str, SMALEvent] = {e.name: e for e in self.events}
+        evt_map: dict[str, Event] = {e.name: e for e in self.events}
         for transition in self.transitions:
             if transition.trigger_state not in state_map:
                 raise ValueError(f"Transition {transition} references unknown trigger state '{transition.trigger_state}'. Must be one of: {', '.join(state_map.keys())}")
@@ -119,7 +121,7 @@ class SMALFile(IdentifierValidationMixin, SemverValidationMixin, BaseModel):
         return self
 
     @staticmethod
-    def _flatten_states(states: list[SMALState], prefix: str = "") -> dict[str, SMALState]:
+    def _flatten_states(states: list[State], prefix: str = "") -> dict[str, State]:
         flat = {}
         for s in states:
             if s.name in flat:
@@ -163,5 +165,8 @@ class SMALFile(IdentifierValidationMixin, SemverValidationMixin, BaseModel):
         model = cls.model_validate(model_data)
         return model
 
-    def get_state(self, name: str) -> SMALState:
+    def get_state(self, name: str) -> State:
         return next(s for s in self.states if s.name == name)
+
+
+SMALFile: TypeAlias = StateMachine

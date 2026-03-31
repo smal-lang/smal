@@ -10,7 +10,9 @@ from typing_extensions import Self
 from smal.schemas.utilities import IdentifierValidationMixin
 
 
-class SMALStateType(str, Enum):
+class StateType(str, Enum):
+    """Enumeration of the types of states in a state machine."""
+
     NORMAL = "normal"
     INITIAL = "initial"
     FINAL = "final"
@@ -20,10 +22,22 @@ class SMALStateType(str, Enum):
 
     @cached_property
     def is_pseudostate(self) -> bool:
-        return self in {SMALStateType.INITIAL, SMALStateType.FINAL, SMALStateType.DECISION, SMALStateType.ERROR}
+        """Get whether or not this StateType is a 'pseudostate', e.g. one that is a descriptor instead of stateful.
+
+        Returns:
+            bool: True if this state is a pseudostate, False otherwise.
+
+        """
+        return self in {StateType.INITIAL, StateType.FINAL, StateType.DECISION, StateType.ERROR}
 
     @cached_property
     def graphviz_shape(self) -> str:
+        """Get the Graphviz node shape corresponding to this StateType.
+
+        Returns:
+            str: The Graphviz node shape corresponding to this StateType.
+
+        """
         return {
             self.NORMAL: "ellipse",
             self.INITIAL: "circle",
@@ -34,28 +48,30 @@ class SMALStateType(str, Enum):
         }[self]
 
 
-class SMALState(IdentifierValidationMixin, BaseModel):
+class State(IdentifierValidationMixin, BaseModel):
+    """Schema defining a state within a state machine."""
+
     IDENTIFIER_FIELDS: ClassVar[tuple[str]] = ("name",)
 
     name: str = Field(..., description="A unique name for the state, which serves as its identifier and may be used in transitions.")
-    substates: list[SMALState] = Field(default_factory=list, description="Substates of the state, if any.")
+    substates: list[State] = Field(default_factory=list, description="Substates of the state, if any.")
     id: int | None = Field(
         default=None,
         description="A unique integer identifier for the state. If not provided, it may be auto-assigned based on the order of definition or other criteria.",
     )
     description: str | None = Field(default=None, description="A human-readable description of the state.")
-    type: SMALStateType = Field(default=SMALStateType.NORMAL, description="The type of the state, which may affect its behavior and/or visualization.")
+    type: StateType = Field(default=StateType.NORMAL, description="The type of the state, which may affect its behavior and/or visualization.")
 
     @field_validator("substates", mode="before")
-    def expand_short_form_substates(cls, v: list[dict | str] | None) -> list[SMALState]:
+    def expand_short_form_substates(cls, v: list[dict | str] | None) -> list[State]:
         if v is None:
             return []
         expanded_substates = []
         for item in v:
             if isinstance(item, str):
-                expanded_substates.append(SMALState(name=item))
+                expanded_substates.append(State(name=item))
             elif isinstance(item, dict):
-                expanded_substates.append(SMALState.model_validate(item))
+                expanded_substates.append(State.model_validate(item))
             else:
                 raise ValueError(f"Invalid state definition: {item}. Must be either a string or a dictionary.")
         return expanded_substates
@@ -66,7 +82,7 @@ class SMALState(IdentifierValidationMixin, BaseModel):
         if self.substates:
             if self.type.is_pseudostate:
                 raise ValueError(f"SMALState<{self.name}>: Pseudostate '{self.type.value}' cannot have substates.")
-            self.type = SMALStateType.COMPOSITE
+            self.type = StateType.COMPOSITE
         # Validate substate name uniqueness
         substate_names = [s.name for s in self.substates]
         if len(substate_names) != len(set(substate_names)):
@@ -83,4 +99,10 @@ class SMALState(IdentifierValidationMixin, BaseModel):
 
     @property
     def is_composite(self) -> bool:
-        return self.type == SMALStateType.COMPOSITE
+        """Get whether or not this state is composite, e.g. it contains substates.
+
+        Returns:
+            bool: True if this state is composite, False otherwise.
+
+        """
+        return self.type == StateType.COMPOSITE
