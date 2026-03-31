@@ -11,7 +11,7 @@ from jinja2 import TemplateNotFound, nodes
 from pydantic import BaseModel
 
 from smal.codegen.code_generator import SMALCodeGenerator
-from smal.schemas.smal_file import SMALFile
+from smal.schemas import SMALFile
 
 
 @dataclass(frozen=True)

@@ -6,7 +6,7 @@ from typing import Any
 from jinja2 import Environment, FileSystemLoader, PackageLoader, Template, select_autoescape
 
 from smal.codegen.smal_templates import SMALTemplate, TemplateRegistry
-from smal.schemas.smal_file import SMALFile
+from smal.schemas.state_machine import SMALFile
 
 
 class SMALCodeGenerator:

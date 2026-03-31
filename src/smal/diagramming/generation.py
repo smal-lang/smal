@@ -1,37 +1,37 @@
+from __future__ import annotations  # Until Python 3.14
+
 from pathlib import Path
 from typing import Any
 
 from graphviz import Digraph, ExecutableNotFound
 from graphviz import FileExistsError as GraphvizFileExistsError
 
-from smal.schemas.smal_file import SMALFile
-from smal.schemas.smal_state import SMALState
-from smal.schemas.smal_transition import SMALTransition
+from smal.schemas import SMALFile, State, Transition
 
 
-def all_descendant_states(state: SMALState) -> set[str]:
+def all_descendant_states(state: State) -> set[str]:
     names = {state.name}
     for ss in state.substates:
         names |= all_descendant_states(ss)
     return names
 
 
-def internal_edges(state: SMALState, smal: SMALFile) -> list[SMALTransition]:
+def internal_edges(state: State, smal: SMALFile) -> list[Transition]:
     names = all_descendant_states(state)
     return [t for t in smal.transitions if t.trigger_state in names and t.landing_state in names]
 
 
-def external_incoming_edges(state: SMALState, smal: SMALFile) -> list[SMALTransition]:
+def external_incoming_edges(state: State, smal: SMALFile) -> list[Transition]:
     names = all_descendant_states(state)
     return [t for t in smal.transitions if t.landing_state in names and t.trigger_state not in names]
 
 
-def external_outgoing_edges(state: SMALState, smal: SMALFile) -> list[SMALTransition]:
+def external_outgoing_edges(state: State, smal: SMALFile) -> list[Transition]:
     names = all_descendant_states(state)
     return [t for t in smal.transitions if t.trigger_state in names and t.landing_state not in names]
 
 
-def create_edge_label(t: SMALTransition) -> str:
+def create_edge_label(t: Transition) -> str:
     label = f"on: {t.trigger_evt}"
     if t.action:
         label += f"\ndo: {t.action}"
@@ -40,7 +40,7 @@ def create_edge_label(t: SMALTransition) -> str:
     return label
 
 
-def build_cluster_tree(smal: SMALFile, dot: Digraph, composite_state: SMALState) -> Digraph:
+def build_cluster_tree(smal: SMALFile, dot: Digraph, composite_state: State) -> Digraph:
     cluster_name = f"cluster_{composite_state.name}"
     cluster = Digraph(cluster_name)
     cluster.attr(

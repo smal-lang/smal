@@ -1,6 +1,6 @@
-
 from typing import Final
-from smal.smal_primitive import SMALPrimitive
+
+from smal.utilities.smal_primitive import SMALPrimitive
 
 SMAL_PRIMITIVE_DECODER_RING: Final[dict[SMALPrimitive, str]] = {
     SMALPrimitive.BOOL: "uint8_t",
@@ -16,7 +16,7 @@ SMAL_PRIMITIVE_DECODER_RING: Final[dict[SMALPrimitive, str]] = {
     SMALPrimitive.UINT64: "uint64_t",
     SMALPrimitive.INT64: "int64_t",
     SMALPrimitive.BYTE: "uint8_t",
-    SMALPrimitive.BYTES: "uint8_t[]"  # Fixed arrays only
+    SMALPrimitive.BYTES: "uint8_t[]",  # Fixed arrays only
 }
 
 LOCAL_PRIMITIVE_SIZES_BYTES: Final[dict[str, int]] = {

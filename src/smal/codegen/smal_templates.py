@@ -1,8 +1,10 @@
+from __future__ import annotations  # Until Python 3.14
+
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, TypeAlias
 
-from smal.schemas.smal_file import SMALFile
+from smal.schemas.state_machine import SMALFile
 
 SMALTemplateContextComputeFn: TypeAlias = Callable[[SMALFile], Any]
 

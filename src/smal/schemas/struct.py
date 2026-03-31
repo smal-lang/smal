@@ -9,8 +9,8 @@ from smal.codegen.target_primitive import get_target_primitive
 from smal.schemas.bit_field import BitField
 from smal.schemas.enumeration import Enumeration
 from smal.schemas.utilities import IdentifierValidationMixin, PrimitiveValidationMixin
-from smal.smal_primitive import SMALPrimitive
 from smal.utilities import constants as SMALConstants
+from smal.utilities.smal_primitive import SMALPrimitive
 
 
 class StructField(IdentifierValidationMixin, PrimitiveValidationMixin, BaseModel):

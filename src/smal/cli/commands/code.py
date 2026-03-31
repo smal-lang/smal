@@ -3,7 +3,7 @@ from pathlib import Path
 from rich.console import Console
 
 from smal.codegen.code_generator import SMALCodeGenerator
-from smal.schemas.smal_file import SMALFile
+from smal.schemas import SMALFile
 
 
 def generate_code_cmd_builtin(smal_path: Path, template_name: str, out_dir: Path, out_filename: str | None, force: bool) -> Path:
