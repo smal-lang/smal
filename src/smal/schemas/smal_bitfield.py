@@ -1,7 +1,10 @@
-from __future__ import annotations
-from smal.schemas.utilities import IdentifierValidationMixin
-from pydantic import BaseModel, field_validator, Field
+from __future__ import annotations  # Until Python 3.14
+
 from typing import ClassVar
+
+from pydantic import BaseModel, Field, field_validator
+
+from smal.schemas.utilities import IdentifierValidationMixin
 
 
 class SMALBitField(IdentifierValidationMixin, BaseModel):
