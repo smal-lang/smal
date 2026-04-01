@@ -1,6 +1,49 @@
 # CHANGELOG
 
 
+## v0.3.0 (2026-04-01)
+
+### Features
+
+- Align schemas, enhance CLI and code generation
+  ([#23](https://github.com/aetheric-sh/smal/pull/23),
+  [`cac8a1a`](https://github.com/aetheric-sh/smal/commit/cac8a1abe188e80c7ece493465f8d2a6860f6fdc))
+
+* stub remaining commands
+
+* update workspace settings
+
+* Cleanup all existing schemas
+
+* remove main.py
+
+* Fix imports
+
+fix errors
+
+* Everything works but validate cmd
+
+fix validate
+
+* cleanup console styling
+
+* working on validators for states and state machines
+
+* working on implementations
+
+* Added rules engine
+
+* cleaned up cli
+
+* Added a lot of C macros
+
+* finished macros for now
+
+* remove test files
+
+* done for now, added ephemeral initial states
+
+
 ## v0.2.3 (2026-03-30)
 
 ### Bug Fixes
