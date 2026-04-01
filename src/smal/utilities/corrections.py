@@ -200,8 +200,33 @@ class HideCompositeToInitialSubstateTransitions(Correction):
             t.set_graphable(False)
 
 
+@dataclass(frozen=True)
+class HideCompositeToRootSimpleStateTransitions(Correction):
+    """Correction that detects transitions from the root of a composite state to root-level simple states and hides them from diagramming."""
+
+    description: str = "Detects transitions from the root of a composite state to root-level simple states and hides them from diagramming."
+
+    def apply(self, machine: StateMachine) -> None:
+        """Apply this correction.
+
+        Args:
+            machine (StateMachine): The state machine the correction is being applied to.
+
+        """
+        for t in machine.transitions:
+            src = machine.get_state(t.src_state)
+            if not src.is_composite:
+                continue
+            tgt = machine.get_state(t.tgt_state)
+            if tgt.is_substate:
+                continue
+            logging.debug("CORRECTION: Hiding a composite root to root-level simple state transition from diagramming...")
+            t.set_graphable(False)
+
+
 ALL_CORRECTIONS: list[CorrectionLike] = [
     InjectRootEphemeralInitialState(),
     RedirectCompositeTargetStateTransitions(),
     HideCompositeToInitialSubstateTransitions(),
+    HideCompositeToRootSimpleStateTransitions(),
 ]
