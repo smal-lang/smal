@@ -58,27 +58,26 @@ def build_cluster_tree(smal: SMALFile, dot: Digraph, composite_state: State) -> 
     graphed_type = ephemeral_initial_state.morphed_type or composite_state.type
     cluster.node(composite_state.initial_substate.name, **graphed_type.default_metadata)
     # Add the ephemeral transitions into and out of the ephemeral initial state
+    added_edges = []
     incoming_eph_transitions = smal.get_incoming_ephemeral_transitions(ephemeral_initial_state)
-    if len(incoming_eph_transitions) != 1:
-        raise RuntimeError
-    incoming_eph_t = incoming_eph_transitions[0]
-    dot.edge(incoming_eph_t.src_state, incoming_eph_t.tgt_state)
+    for iet in incoming_eph_transitions:
+        dot.edge(iet.src_state, iet.tgt_state)
+        added_edges.append(iet)
     outgoing_eph_transitions = smal.get_outgoing_ephemeral_transitions(ephemeral_initial_state)
-    if len(outgoing_eph_transitions) != 1:
-        raise RuntimeError
-    outgoing_eph_t = outgoing_eph_transitions[0]
-    cluster.edge(outgoing_eph_t.src_state, outgoing_eph_t.tgt_state)
+    for oet in outgoing_eph_transitions:
+        cluster.edge(oet.src_state, oet.tgt_state)
+        added_edges.append(oet)
     # Add all non-initial root substates
     for rss in [ss for ss in composite_state.substates if not ss.substates and ss.type != StateType.INITIAL]:
         cluster.node(rss.name, **rss.type.default_metadata)
     # Internal edges
-    for ie in internal_edges(composite_state, smal, added_edges=[incoming_eph_t, outgoing_eph_t]):
+    for ie in internal_edges(composite_state, smal, added_edges=added_edges):
         cluster.edge(ie.src_state, ie.tgt_state, label=create_edge_label(ie))
     # External incoming edges
-    for eie in external_incoming_edges(composite_state, smal, added_edges=[incoming_eph_t, outgoing_eph_t]):
+    for eie in external_incoming_edges(composite_state, smal, added_edges=added_edges):
         dot.edge(eie.src_state, eie.tgt_state, label=create_edge_label(eie), lhead=cluster_name)
     # External outgoing edges
-    for eoe in external_outgoing_edges(composite_state, smal, added_edges=[incoming_eph_t, outgoing_eph_t]):
+    for eoe in external_outgoing_edges(composite_state, smal, added_edges=added_edges):
         dot.edge(eoe.src_state, eoe.tgt_state, label=create_edge_label(eoe), ltail=cluster_name)
     # Now recurse over nested substates
     for nss in [ss for ss in composite_state.substates if ss.substates]:
@@ -128,7 +127,7 @@ def generate_state_machine_svg(
             dot.node(eph_init.name, **StateType.INITIAL.default_metadata)
             eph_transit = smal.get_outgoing_ephemeral_transitions(eph_init)
             if len(eph_transit) != 1:
-                raise RuntimeError
+                raise RuntimeError("Root-level initial states can only have 1 ephemeral incoming transition. This should never happen.")
             dot.edge(eph_init.name, rs.name)
             graphed_type = eph_init.morphed_type or rs.type
             dot.node(rs.name, **graphed_type.default_metadata)
@@ -153,21 +152,6 @@ def generate_state_machine_svg(
     for cs in composite_states:
         # Build the cluster tree, adding edges as we go
         cluster = build_cluster_tree(smal, dot, cs)
-        # # Inject the ephemeral initial state for the cluster, which is required to exist
-        # ephemeral_initial_state = smal.get_ephemeral_state(cs.initial_substate)
-        # if ephemeral_initial_state is None:
-        #     raise RuntimeError("Composite states must have an ephemeral initial substate.")
-        # cluster.node(ephemeral_initial_state.name, **StateType.INITIAL.default_metadata)
-        # incoming_eph_transitions = smal.get_incoming_ephemeral_transitions(ephemeral_initial_state)
-        # if len(incoming_eph_transitions) != 1:
-        #     raise RuntimeError
-        # incoming_eph_t = incoming_eph_transitions[0]
-        # dot.edge(incoming_eph_t.src_state, incoming_eph_t.tgt_state)
-        # outgoing_eph_transitions = smal.get_outgoing_ephemeral_transitions(ephemeral_initial_state)
-        # if len(outgoing_eph_transitions) != 1:
-        #     raise RuntimeError
-        # outgoing_eph_t = outgoing_eph_transitions[0]
-        # cluster.edge(outgoing_eph_t.src_state, outgoing_eph_t.tgt_state)
         # Add the cluster to the root graph
         dot.subgraph(cluster)
 

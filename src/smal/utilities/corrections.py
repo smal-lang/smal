@@ -112,7 +112,7 @@ class InjectRootEphemeralInitialState(Correction):
         """
         root_initial_states = [s for s in machine.states if s.type == StateType.INITIAL]
         if len(root_initial_states) != 1:
-            raise RuntimeError
+            raise RuntimeError("Root-level initial states can only have 1 ephemeral incoming transition. This should never happen.")
         root_init = root_initial_states[0]
         ephemeral_init = EphemeralState(f"__eph_initial_{root_init.name}", root_init, morphed_type=StateType.SIMPLE)
         machine.add_ephemeral_state(ephemeral_init)
