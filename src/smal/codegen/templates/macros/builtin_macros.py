@@ -47,25 +47,11 @@ class MacroRegistry:
             description="Macro that generates all defined constants from a .smal file in C as #defines.",
             params=["smal"],
         ),
-        "c_machine_dbg_struct": SMALMacro(
-            name="c_machine_dbg_struct",
-            filename="c_machine_dbg_struct.j2",
-            lang="c",
-            description="Macro that generates the defined debugging struct from a .smal file in C.",
-            params=["smal"],
-        ),
         "c_machine_errors": SMALMacro(
             name="c_machine_errors",
             filename="c_machine_errors.j2",
             lang="c",
             description="Macro that generates the enumeration of all defined errors from a .smal file in C.",
-            params=["smal"],
-        ),
-        "c_machine_event_loop": SMALMacro(
-            name="c_machine_event_loop",
-            filename="c_machine_event_loop.j2",
-            lang="c",
-            description="Macro that generates the event loop function that drives the state table from a .smal file in C.",
             params=["smal"],
         ),
         "c_machine_events": SMALMacro(
