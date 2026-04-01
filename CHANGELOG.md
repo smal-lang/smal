@@ -1,6 +1,17 @@
 # CHANGELOG
 
 
+## v0.3.5 (2026-04-01)
+
+### Bug Fixes
+
+- Minor tweaks to diagramming logic ([#27](https://github.com/aetheric-sh/smal/pull/27),
+  [`9dfb93c`](https://github.com/aetheric-sh/smal/commit/9dfb93c36adf5e1a2b3bfad4114d78b3bd387432))
+
+- Hides composite root to root-level state transitions from diagramming - Actually disables the no
+  transitions to root-level initial state rule
+
+
 ## v0.3.4 (2026-04-01)
 
 ### Bug Fixes
