@@ -1,8 +1,8 @@
 import importlib
 from dataclasses import dataclass
 
-from smal.smal_primitive import SMALPrimitive
 from smal.utilities import constants as SMALConstants
+from smal.utilities.smal_primitive import SMALPrimitive
 
 
 @dataclass

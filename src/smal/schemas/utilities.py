@@ -1,7 +1,12 @@
-from pydantic import field_validator
-import semver
+from __future__ import annotations  # Until Python 3.14
+
 from typing import ClassVar
-from smal.smal_primitive import SMALPrimitive
+
+import semver
+from pydantic import field_validator
+
+from smal.utilities.smal_primitive import SMALPrimitive
+
 
 class IdentifierValidationMixin:
     IDENTIFIER_FIELDS: ClassVar[tuple[str]] = ("name",)
@@ -23,6 +28,7 @@ class SemverValidationMixin:
         except (ValueError, TypeError):
             raise
         return v
+
 
 class PrimitiveValidationMixin:
     TYPE_FIELDS: ClassVar[tuple[str]] = ("type",)

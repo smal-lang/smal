@@ -1,10 +1,15 @@
-from __future__ import annotations
-from smal.schemas.utilities import IdentifierValidationMixin
-from pydantic import BaseModel, field_validator, Field
+from __future__ import annotations  # Until Python 3.14
+
 from typing import ClassVar
 
+from pydantic import BaseModel, Field, field_validator
 
-class SMALBitField(IdentifierValidationMixin, BaseModel):
+from smal.schemas.utilities import IdentifierValidationMixin
+
+
+class BitField(IdentifierValidationMixin, BaseModel):
+    """Schema defining an individual field within a bitfield. Not to be confused with the bitfield itself."""
+
     IDENTIFIER_FIELDS: ClassVar[tuple[str]] = ("name",)
 
     name: str = Field(..., description="The name of the bit field (not to be confused with bitfield).")

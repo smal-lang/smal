@@ -1,3 +1,5 @@
+from __future__ import annotations  # Until Python 3.14
+
 from typing import ClassVar
 
 from pydantic import BaseModel, Field
@@ -5,7 +7,9 @@ from pydantic import BaseModel, Field
 from smal.schemas.utilities import IdentifierValidationMixin
 
 
-class SMALEvent(IdentifierValidationMixin, BaseModel):
+class Event(IdentifierValidationMixin, BaseModel):
+    """Schema defining an event in a state machine."""
+
     IDENTIFIER_FIELDS: ClassVar[tuple[str]] = ("name",)
 
     name: str = Field(..., description="A unique name for the event, which serves as its identifier and may be used in transitions.")

@@ -7,11 +7,33 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, ClassVar
 
+import typer
 from jinja2 import TemplateNotFound, nodes
 from pydantic import BaseModel
+from rich.console import Console
 
 from smal.codegen.code_generator import SMALCodeGenerator
-from smal.schemas.smal_file import SMALFile
+from smal.schemas import SMALFile
+from smal.utilities import constants as SMALConstants
+
+validate_app = typer.Typer(help="Validate .smal files and external Jinja2 templates for compliance/compatibility with SMAL.")
+
+
+@validate_app.callback(invoke_without_command=True)
+def validate_root(
+    filepath: Path = typer.Argument(..., exists=True, file_okay=True, dir_okay=False, readable=True, help="Path to the .smal or .j2 file to validate."),
+) -> None:
+    console = Console()
+    if filepath.suffix in SMALConstants.SupportedFileExtensions.all():
+        with console.status(" SMAL file detected. Validating", spinner="dots"):
+            pass
+    elif filepath.suffix in JinjaTemplateValidator.VALID_EXTENSIONS:
+        with console.status(" Jinja2 codegen template detected. Validating", spinner="dots"):
+            validator = JinjaTemplateValidator(filepath)
+            validation_result = validator.validate()
+            validation_result.echo_report(filepath)
+    else:
+        typer.BadParameter(f"Invalid filetype detected: {filepath.suffix}")
 
 
 @dataclass(frozen=True)
@@ -74,7 +96,7 @@ class SMALValidationResult:
         if template_path:
             console.print(f"Location: {template_path}")
         if not self.issues:
-            console.print(f"[green]No issues found! '{self.template_name}' is a valid SMAL template![/green]")
+            console.print(f"[green]No issues found! [bold cyan]'{self.template_name}'[/bold cyan] is a valid SMAL code generation template![/green]")
             return
         for issue in self.issues:
             header = Text()
@@ -97,7 +119,7 @@ class JinjaTemplateValidator:
         else:
             if template.suffix.lower() not in self.VALID_EXTENSIONS:
                 raise ValueError(
-                    f"Template file '{template}' does not have a typical Jinja2 template extension: {template.suffix}. Must be one of {', '.join(self.VALID_EXTENSIONS)}"
+                    f"Template file '{template}' does not have a typical Jinja2 template extension: {template.suffix}. Must be one of {', '.join(self.VALID_EXTENSIONS)}",
                 )
             self.env, self.template = self._generator.load_external_template(template)
             self.builtin = False
@@ -226,67 +248,78 @@ class JinjaTemplateValidator:
                 )
 
 
-def extract_paths_from_model_schema(model_schema: dict[str, Any], prefix: str = "", root_schema: dict[str, Any] | None = None) -> set[str]:
-    """Extracts variable paths from a Pydantic model schema.
-
-    Args:
-        model_schema (dict[str, Any]): The JSON schema of the model.
-        prefix (str, optional): The prefix for the variable paths. Defaults to "".
-        root_schema (dict[str, Any], optional): The root schema for resolving references. Defaults to None.
-
-    Returns:
-        set[str]: A set of variable paths.
-
-    """
+def extract_paths_from_model_schema(
+    model_schema: dict[str, Any],
+    prefix: str = "",
+    root_schema: dict[str, Any] | None = None,
+    visited_refs: set[str] | None = None,
+) -> set[str]:
     if root_schema is None:
         root_schema = model_schema
+    if visited_refs is None:
+        visited_refs = set()
+
     paths = set()
-    # $ref resolution
+
+    # --- $ref resolution with cycle detection ---
     if "$ref" in model_schema:
         ref: str = model_schema["$ref"]
-        # We only expect refs into $defs for Pydantic models
-        if ref.startswith("#/$defs/"):
-            type_name = ref.split("/")[-1]  # "SMALState"
-            defs = root_schema.get("$defs") or root_schema.get("definitions") or {}
-            subschema = defs.get(type_name)
-            if subschema is None:
-                # If we can't resolve it, just treat this as a leaf to avoid KeyError
-                if prefix:
-                    paths.add(prefix)
-                return paths
-            return extract_paths_from_model_schema(subschema, prefix, root_schema)
-        else:
-            # Unknown ref shape; treat as leaf
+
+        # If we've already expanded this ref, stop recursion
+        if ref in visited_refs:
             if prefix:
                 paths.add(prefix)
             return paths
+
+        visited_refs.add(ref)
+
+        if ref.startswith("#/$defs/"):
+            type_name = ref.rsplit("/", maxsplit=1)[-1]
+            defs = root_schema.get("$defs") or root_schema.get("definitions") or {}
+            subschema = defs.get(type_name)
+            if subschema is None:
+                if prefix:
+                    paths.add(prefix)
+                return paths
+            return extract_paths_from_model_schema(subschema, prefix, root_schema, visited_refs)
+        if prefix:
+            paths.add(prefix)
+        return paths
+
     schema_type = model_schema.get("type")
-    # Objects
+
+    # --- Objects ---
     if schema_type == "object":
         props = model_schema.get("properties", {})
         for name, subschema in props.items():
             new_prefix = f"{prefix}.{name}" if prefix else name
-            paths |= extract_paths_from_model_schema(subschema, new_prefix, root_schema)
+            paths |= extract_paths_from_model_schema(subschema, new_prefix, root_schema, visited_refs)
         return paths
-    # Arrays
+
+    # --- Arrays ---
     if schema_type == "array":
         items = model_schema.get("items", {})
         new_prefix = f"{prefix}[]" if prefix else "[]"
-        return extract_paths_from_model_schema(items, new_prefix, root_schema)
-    # anyOf / oneOf
+        return extract_paths_from_model_schema(items, new_prefix, root_schema, visited_refs)
+
+    # --- anyOf / oneOf ---
     if "anyOf" in model_schema:
         for option in model_schema["anyOf"]:
-            paths |= extract_paths_from_model_schema(option, prefix, root_schema)
+            paths |= extract_paths_from_model_schema(option, prefix, root_schema, visited_refs)
         return paths
+
     if "oneOf" in model_schema:
         for option in model_schema["oneOf"]:
-            paths |= extract_paths_from_model_schema(option, prefix, root_schema)
+            paths |= extract_paths_from_model_schema(option, prefix, root_schema, visited_refs)
         return paths
-    # Primitives
+
+    # --- Primitives ---
     if schema_type in {"string", "number", "integer", "boolean", "null"}:
-        paths.add(prefix)
+        if prefix:
+            paths.add(prefix)
         return paths
-    # Fallback
+
+    # --- Fallback ---
     if prefix:
         paths.add(prefix)
     return paths

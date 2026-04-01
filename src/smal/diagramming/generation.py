@@ -1,46 +1,46 @@
+from __future__ import annotations  # Until Python 3.14
+
 from pathlib import Path
 from typing import Any
 
 from graphviz import Digraph, ExecutableNotFound
 from graphviz import FileExistsError as GraphvizFileExistsError
 
-from smal.schemas.smal_file import SMALFile
-from smal.schemas.smal_state import SMALState
-from smal.schemas.smal_transition import SMALTransition
+from smal.schemas import SMALFile, State, StateType, Transition
 
 
-def all_descendant_states(state: SMALState) -> set[str]:
+def all_descendant_states(state: State) -> set[str]:
     names = {state.name}
     for ss in state.substates:
         names |= all_descendant_states(ss)
     return names
 
 
-def internal_edges(state: SMALState, smal: SMALFile) -> list[SMALTransition]:
+def internal_edges(state: State, smal: SMALFile) -> list[Transition]:
     names = all_descendant_states(state)
-    return [t for t in smal.transitions if t.trigger_state in names and t.landing_state in names]
+    return [t for t in smal.transitions if t.src_state in names and t.tgt_state in names]
 
 
-def external_incoming_edges(state: SMALState, smal: SMALFile) -> list[SMALTransition]:
+def external_incoming_edges(state: State, smal: SMALFile) -> list[Transition]:
     names = all_descendant_states(state)
-    return [t for t in smal.transitions if t.landing_state in names and t.trigger_state not in names]
+    return [t for t in smal.transitions if t.tgt_state in names and t.src_state not in names]
 
 
-def external_outgoing_edges(state: SMALState, smal: SMALFile) -> list[SMALTransition]:
+def external_outgoing_edges(state: State, smal: SMALFile) -> list[Transition]:
     names = all_descendant_states(state)
-    return [t for t in smal.transitions if t.trigger_state in names and t.landing_state not in names]
+    return [t for t in smal.transitions if t.src_state in names and t.tgt_state not in names]
 
 
-def create_edge_label(t: SMALTransition) -> str:
-    label = f"on: {t.trigger_evt}"
-    if t.action:
-        label += f"\ndo: {t.action}"
-    if t.landing_state_entry_evt:
-        label += f"\nentry: {t.landing_state_entry_evt}"
+def create_edge_label(t: Transition) -> str:
+    label = f"on: {t.evt}"
+    if t.actions:
+        label += f"\ndo: [{', '.join(t.actions)}]"
+    if t.tgt_entry_evt:
+        label += f"\nentry: {t.tgt_entry_evt}"
     return label
 
 
-def build_cluster_tree(smal: SMALFile, dot: Digraph, composite_state: SMALState) -> Digraph:
+def build_cluster_tree(smal: SMALFile, dot: Digraph, composite_state: State) -> Digraph:
     cluster_name = f"cluster_{composite_state.name}"
     cluster = Digraph(cluster_name)
     cluster.attr(
@@ -51,21 +51,53 @@ def build_cluster_tree(smal: SMALFile, dot: Digraph, composite_state: SMALState)
     )
     # Add all root substates
     for rss in [ss for ss in composite_state.substates if not ss.substates]:
-        cluster.node(rss.name, shape=rss.type.graphviz_shape)
+        cluster.node(rss.name, **rss.type.default_metadata)
     # Internal edges
     for ie in internal_edges(composite_state, smal):
-        cluster.edge(ie.trigger_state, ie.landing_state, label=create_edge_label(ie))
+        cluster.edge(ie.src_state, ie.tgt_state, label=create_edge_label(ie))
     # External incoming edges
     for eie in external_incoming_edges(composite_state, smal):
-        dot.edge(eie.trigger_state, eie.landing_state, label=create_edge_label(eie), lhead=cluster_name)
+        dot.edge(eie.src_state, eie.tgt_state, label=create_edge_label(eie), lhead=cluster_name)
     # External outgoing edges
     for eoe in external_outgoing_edges(composite_state, smal):
-        dot.edge(eoe.trigger_state, eoe.landing_state, label=create_edge_label(eoe), ltail=cluster_name)
+        dot.edge(eoe.src_state, eoe.tgt_state, label=create_edge_label(eoe), ltail=cluster_name)
     # Now recurse over nested substates
     for nss in [ss for ss in composite_state.substates if ss.substates]:
         subtree = build_cluster_tree(smal, cluster, nss)
         cluster.subgraph(subtree)
     return cluster
+
+
+def collect_initial_states(state: State) -> list[State]:
+    found = []
+    if state.type == StateType.INITIAL:
+        found.append(state)
+    for ss in state.substates:
+        found.extend(collect_initial_states(ss))
+    return found
+
+
+def find_parent_state(root_states: list[State], target: State) -> State | None:
+    for s in root_states:
+        if target in s.substates:
+            return s
+        for ss in s.substates:
+            parent = find_parent_state([ss], target)
+            if parent:
+                return parent
+    return None
+
+
+def inject_ephemeral_initial_state(dot: Digraph, state: State, all_states: list[State]) -> None:
+    pseudo_name = f"__initial_{state.name}"
+    dot.node(pseudo_name, **StateType.INITIAL.default_metadata)
+    parent = find_parent_state(all_states, state)
+    if parent:
+        dot.edge(pseudo_name, state.name, lhead=f"cluster_{parent.name}")
+    else:
+        dot.edge(pseudo_name, state.name)
+    # Then, change this state's type to simple so it is rendered correctly
+    state.type = StateType._EPHEMERAL_INITIAL
 
 
 def generate_state_machine_svg(
@@ -88,7 +120,7 @@ def generate_state_machine_svg(
     default_edge_attr = {"fontsize": "10", "color": "#555555"}
     default_edge_attr.update(edge_attr or {})
     dot = Digraph(
-        name=smal.machine,
+        name=smal.name,
         format="svg",
         graph_attr=default_graph_attr,
         node_attr=default_node_attr,
@@ -96,26 +128,28 @@ def generate_state_machine_svg(
     )
     # Optionally, add a title
     if title:
-        dot.attr(label=smal.machine, labelloc="t", fontsize="20", fontname="Arial Bold")
+        dot.attr(label=smal.name, labelloc="t", fontsize="20", fontname="Arial Bold")
+
+    initial_states = []
+    for s in smal.states:
+        initial_states.extend(collect_initial_states(s))
+    for init in initial_states:
+        inject_ephemeral_initial_state(dot, init, smal.states)
 
     # 1. Add all root states
     root_states = [s for s in smal.states if not s.substates]
     root_state_names = {rs.name for rs in root_states}
     added_root_edges = []
     for rs in root_states:
-        dot.node(rs.name, shape=rs.type.graphviz_shape)
+        dot.node(rs.name, **rs.type.default_metadata)
         # 2. Add all root-to-root edges (root-to-cluster/cluster-to-root will be added later)
-        incoming_root_edges = [
-            t for t in smal.transitions if t.trigger_state in root_state_names and t.trigger_state != rs.name and t.landing_state == rs.name and t not in added_root_edges
-        ]
-        outgoing_root_edges = [
-            t for t in smal.transitions if t.landing_state in root_state_names and t.landing_state != rs.name and t.trigger_state == rs.name and t not in added_root_edges
-        ]
+        incoming_root_edges = [t for t in smal.transitions if t.src_state in root_state_names and t.src_state != rs.name and t.tgt_state == rs.name and t not in added_root_edges]
+        outgoing_root_edges = [t for t in smal.transitions if t.tgt_state in root_state_names and t.tgt_state != rs.name and t.src_state == rs.name and t not in added_root_edges]
         for ire in incoming_root_edges:
-            dot.edge(ire.trigger_state, ire.landing_state, create_edge_label(ire))
+            dot.edge(ire.src_state, ire.tgt_state, create_edge_label(ire))
             added_root_edges.append(ire)
         for ore in outgoing_root_edges:
-            dot.edge(ore.trigger_state, ore.landing_state, create_edge_label(ore))
+            dot.edge(ore.src_state, ore.tgt_state, create_edge_label(ore))
             added_root_edges.append(ore)
 
     # 2. For each composite state
@@ -129,7 +163,7 @@ def generate_state_machine_svg(
     # 3. Save output
     try:
         out_path = dot.render(
-            filename=f"{smal.machine.lower()}_state_machine_diagram",
+            filename=f"{smal.name.lower()}_state_machine_diagram",
             directory=svg_output_dir,
             cleanup=True,
             raise_if_result_exists=not force,
