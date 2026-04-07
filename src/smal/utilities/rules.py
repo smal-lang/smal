@@ -259,7 +259,10 @@ class AllStatesMustBeReachable(Rule):
             root_state = machine.initial_state
         reachable_states = self._compute_reachable_states(root_state.name, machine.adjacency_list)
         all_states = set(machine.flatten(machine.states).keys())
-        unreachable_states = all_states - reachable_states
+        # Omit composite states since transitions should go directly to the internal substates
+        composite_states = {cs.name for cs in machine.composite_states}
+        all_valid_states = all_states - composite_states
+        unreachable_states = all_valid_states - reachable_states
         if unreachable_states:
             raise ValueError(f"Unreachable state(s) detected in state machine: {', '.join(unreachable_states)}")
 

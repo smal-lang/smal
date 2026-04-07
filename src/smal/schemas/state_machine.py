@@ -60,25 +60,14 @@ class StateMachine(IdentifierValidationMixin, SemverValidationMixin, BaseModel):
         return self._adj
 
     @property
-    def root_state(self) -> State | None:
-        """Get the root state of this state machine, which is the unique state that is not a substate of any other state and has no incoming transitions.
-
-        NOTE: Not all state machines are guaranteed to have a root state, for example, an indefinitely-running state machine that always lands back in its initial state.
-
-        No state machine is allowed to have more than one root state, as that would violate the tree structure requirement for the state hierarchy.
+    def composite_states(self) -> list[State]:
+        """Get all root-level composite states of this state machine.
 
         Returns:
-            State | None: The root State object of this state machine, or None if no root state exists.
+            list[State]: All root-level composite states of this state machine.
 
         """
-        roots = [s for s in self.states if not s.is_substate and len(self.get_incoming_transitions(s)) == 0]
-        match len(roots):
-            case 0:
-                return None
-            case 1:
-                return roots[0]
-            case _:
-                raise ValueError(f"StateMachine '{self.name}' has multiple root states: {', '.join(s.name for s in roots)}. A state machine must have exactly one root state.")
+        return [s for s in self.states if s.is_composite]
 
     @property
     def initial_state(self) -> State:
@@ -101,6 +90,27 @@ class StateMachine(IdentifierValidationMixin, SemverValidationMixin, BaseModel):
                     f"StateMachine '{self.name}' has multiple root initial states: {', '.join(s.name for s in initial_states)}."
                     " A state machine must have exactly one root initial state (type: INITIAL and not a substate).",
                 )
+
+    @property
+    def root_state(self) -> State | None:
+        """Get the root state of this state machine, which is the unique state that is not a substate of any other state and has no incoming transitions.
+
+        NOTE: Not all state machines are guaranteed to have a root state, for example, an indefinitely-running state machine that always lands back in its initial state.
+
+        No state machine is allowed to have more than one root state, as that would violate the tree structure requirement for the state hierarchy.
+
+        Returns:
+            State | None: The root State object of this state machine, or None if no root state exists.
+
+        """
+        roots = [s for s in self.states if not s.is_substate and not s.is_composite and len(self.get_incoming_transitions(s)) == 0]
+        match len(roots):
+            case 0:
+                return None
+            case 1:
+                return roots[0]
+            case _:
+                raise ValueError(f"StateMachine '{self.name}' has multiple root states: {', '.join(s.name for s in roots)}. A state machine must have exactly one root state.")
 
     @model_validator(mode="before")
     @classmethod
