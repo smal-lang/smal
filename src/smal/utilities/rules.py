@@ -159,7 +159,7 @@ class EntryExitStatesRequireParent(Rule):
             IllegalStateError: If the state machine violates this rule.
 
         """
-        flattened = machine.get_flattened_states()
+        flattened = machine.flatten(machine.states)
         for s in flattened.values():
             if s.type in {StateType.ENTRY, StateType.EXIT} and not s.is_substate:
                 raise IllegalStateError("Entry / Exit pseudostates must be children of composite states.", s, machine.name)
@@ -181,7 +181,7 @@ class DecisionsJunctionsRequireMultiOut(Rule):
             IllegalStateError: If the state machine violates this rule.
 
         """
-        flattened = machine.get_flattened_states()
+        flattened = machine.flatten(machine.states)
         for s in flattened.values():
             if s.type in {StateType.DECISION, StateType.JUNCTION} and len(machine.get_outgoing_transitions(s)) < 2:
                 raise IllegalStateError("Decision / Junction pseudostates must have >=2 outgoing transitions.", s, machine.name)
@@ -203,7 +203,7 @@ class JoinsRequireMultiInSingleOut(Rule):
             IllegalStateError: If the state machine violates this rule.
 
         """
-        flattened = machine.get_flattened_states()
+        flattened = machine.flatten(machine.states)
         for s in flattened.values():
             if s.type == StateType.JOIN:
                 if len(machine.get_incoming_transitions(s)) < 2:
@@ -228,7 +228,7 @@ class ForksRequireSingleInMultiOut(Rule):
             IllegalStateError: If the state machine violates this rule.
 
         """
-        flattened = machine.get_flattened_states()
+        flattened = machine.flatten(machine.states)
         for s in flattened.values():
             if s.type == StateType.FORK:
                 if len(machine.get_incoming_transitions(s)) != 1:
@@ -258,7 +258,7 @@ class AllStatesMustBeReachable(Rule):
             # Not all state machines have a root state, so if that's the case, fall back to its initial state as the root for reachability purposes
             root_state = machine.initial_state
         reachable_states = self._compute_reachable_states(root_state.name, machine.adjacency_list)
-        all_states = set(machine.get_flattened_states())
+        all_states = set(machine.flatten(machine.states).keys())
         unreachable_states = all_states - reachable_states
         if unreachable_states:
             raise ValueError(f"Unreachable state(s) detected in state machine: {', '.join(unreachable_states)}")

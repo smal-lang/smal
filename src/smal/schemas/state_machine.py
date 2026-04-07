@@ -118,7 +118,7 @@ class StateMachine(IdentifierValidationMixin, SemverValidationMixin, BaseModel):
         transitions = v.get("transitions", [])
         events = v.get("events", [])
         if not events and transitions:
-            inferred_events = {t["event"] for t in transitions if "event" in t and t["event"] is not None}
+            inferred_events = {t["evt"] for t in transitions if "evt" in t and t["evt"] is not None}
             v["events"] = list(inferred_events)
         # Done
         return v
@@ -183,15 +183,17 @@ class StateMachine(IdentifierValidationMixin, SemverValidationMixin, BaseModel):
         def enforce_monotonicity_helper(objects: list[State] | list[Error] | list[Event]) -> None:
             obj_type = type(objects[0]).__name__ if objects else "Object"
             ids = [o.id for o in objects]
-            if any(i is not None for i in ids):
+            if any(i is None for i in ids):
                 logging.debug("StateMachine '%s': Some %ss are missing IDs. Assigning fresh monotonic IDs based on order of definition.", self.name, obj_type)
                 for idx, obj in enumerate(objects):
                     obj.id = idx
                     logging.debug("StateMachine '%s': Assigned ID %d to %s '%s'.", self.name, idx, obj_type, obj.name)
+                return
             sorted_ids = sorted(ids)
             expected_ids = list(range(len(objects)))
             if sorted_ids != expected_ids:
                 raise ValueError(f"StateMachine '{self.name}': Object IDs must be monotonically increasing starting from 0. Found IDs: {ids}")
+            return
 
         # Enforce monotonic IDs for states, events and errors
         enforce_monotonicity_helper(self.states)
@@ -330,7 +332,7 @@ class StateMachine(IdentifierValidationMixin, SemverValidationMixin, BaseModel):
             correction.post_application(self)
         # Build adjacency lists
         self._adj: dict[str, list[str]] = defaultdict(list)
-        for t in self.get_all_transitions():
+        for t in self.transitions:
             self._adj[t.src].append(t.tgt)
         # Build reverse adjacency lists
         self._adj_rev: dict[str, list[str]] = defaultdict(list)

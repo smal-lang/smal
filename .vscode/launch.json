@@ -12,8 +12,8 @@
             "cwd": "${workspaceFolder}/src",
             "args": [
                 "diagram",
-                "${workspaceFolder}/src/examples/example_substates.smal",
-                "${workspaceFolder}/src/examples",
+                "${workspaceFolder}/src/examples/${input:exampleChoice}/${input:exampleChoice}.smal",
+                "${workspaceFolder}/src/examples/${input:exampleChoice}",
                 "-f",
             ],
             "console": "integratedTerminal"
@@ -27,7 +27,7 @@
             "args": [
                 "code",
                 "generate",
-                "${workspaceFolder}/src/examples/example_substates.smal",
+                "${workspaceFolder}/src/examples/${input:exampleChoice}/${input:exampleChoice}.smal",
                 "-t",
                 "c_machine_hdr",
                 "-f"
@@ -69,5 +69,19 @@
             ],
             "console": "integratedTerminal"
         },
+    ],
+    "inputs": [
+        {
+            "id": "exampleChoice",
+            "type": "pickString",
+            "description": "Choose an example",
+            "options": [
+                "simple",
+                "simple_shorthand",
+                "substates",
+                "complex",
+            ],
+            "default": "simple"
+        }
     ]
 }

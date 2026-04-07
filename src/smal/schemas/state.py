@@ -3,7 +3,6 @@
 from __future__ import annotations  # Until Python 3.14
 
 import logging
-from dataclasses import dataclass
 from enum import Enum
 from functools import cached_property
 from typing import Any, ClassVar
@@ -43,7 +42,7 @@ class StateType(str, Enum):
         return {
             StateType.SIMPLE: {"shape": "box", "style": "rounded"},
             StateType.COMPOSITE: {"shape": "box", "style": "rounded"},
-            StateType.INITIAL: {"shape": "point"},
+            StateType.INITIAL: {"shape": "circle"},
             StateType.TERMINAL: {"shape": "none", "label": "✕", "fontsize": "24"},
             StateType.ENTRY: {"shape": "circle", "color": "green"},
             StateType.EXIT: {"shape": "circle", "color": "red"},
@@ -180,6 +179,16 @@ class State(BaseModel, IdentifierValidationMixin):
 
         """
         return self.parent_name is not None
+
+    @property
+    def parent_name(self) -> str | None:
+        """Get the name of the parent state of this state, if it is a substate.
+
+        Returns:
+            str | None: The name of the parent state if this state is a substate, or None if this state does not have a parent.
+
+        """
+        return self._parent_name
 
     def set_parent(self, parent: State) -> None:
         """Set the parent of this state.
