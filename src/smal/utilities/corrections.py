@@ -10,14 +10,13 @@ from typing import TYPE_CHECKING, Protocol
 from smal.schemas.state import StateType
 
 if TYPE_CHECKING:
-    from smal.schemas import StateMachine
+    from smal.schemas.state_machine import StateMachine
 
 
 class CorrectionLike(Protocol):
     """Protocol defining the structure for an encapsulated correction for a SMAL state machine."""
 
     description: str
-    enabled: bool
     group: str | None
 
     @property
@@ -49,12 +48,11 @@ class CorrectionLike(Protocol):
         """
 
 
-@dataclass(frozen=True)
+@dataclass
 class Correction(CorrectionLike):
     """Base class for all CorrectionLike objects."""
 
     description: str = ""
-    enabled: bool = True
     group: str | None = None
 
     @property
@@ -96,7 +94,7 @@ class Correction(CorrectionLike):
         # NOTE: Not raising exception here, as this is an optional method
 
 
-@dataclass(frozen=True)
+@dataclass
 class HideCompositeToInitialSubstateTransitions(Correction):
     """Correction that detects transitions from the root of a composite state to its initial substate and hides them from diagramming."""
 
@@ -120,7 +118,7 @@ class HideCompositeToInitialSubstateTransitions(Correction):
             t.set_graphable(False)
 
 
-@dataclass(frozen=True)
+@dataclass
 class HideCompositeToRootSimpleStateTransitions(Correction):
     """Correction that detects transitions from the root of a composite state to root-level simple states and hides them from diagramming."""
 
@@ -145,6 +143,6 @@ class HideCompositeToRootSimpleStateTransitions(Correction):
 
 
 ALL_CORRECTIONS: list[CorrectionLike] = [
-    # HideCompositeToInitialSubstateTransitions(),
-    # HideCompositeToRootSimpleStateTransitions(),
+    HideCompositeToInitialSubstateTransitions(),
+    HideCompositeToRootSimpleStateTransitions(),
 ]

@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from rich.console import Console
 
 from smal.codegen.code_generator import SMALCodeGenerator
-from smal.schemas import SMALFile
+from smal.schemas.state_machine import SMALFile
 from smal.utilities import constants as SMALConstants
 
 validate_app = typer.Typer(help="Validate .smal files and external Jinja2 templates for compliance/compatibility with SMAL.")

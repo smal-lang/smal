@@ -2,19 +2,24 @@
 
 from __future__ import annotations  # Until Python 3.14
 
-from pathlib import Path
+from pathlib import Path  # noqa: TC003 - Move application import to TYPE_CHECKING block. Typer needs this.
 from typing import Literal
 
 import typer
 from rich.console import Console
 
-from smal.cli.commands import clean_app, code_app, graphviz_app, rules_app, validate_app
+from smal.cli.commands.clean import clean_app
+from smal.cli.commands.code import code_app
+from smal.cli.commands.corrections import corrections_app
+from smal.cli.commands.graphviz import graphviz_app
+from smal.cli.commands.rules import rules_app
+from smal.cli.commands.validate import validate_app
 from smal.diagramming.generation import generate_state_machine_svg
 
 app = typer.Typer(help="SMAL = State Machine Abstraction Language CLI")
 app.add_typer(clean_app, name="clean")
 app.add_typer(code_app, name="code")
-# TODO: corrections cmd
+app.add_typer(corrections_app, name="corrections")
 # TODO: debug cmd
 # TODO: explain cmd
 app.add_typer(graphviz_app, name="graphviz")
@@ -32,6 +37,17 @@ def diagram_root(
     title: bool = typer.Option(True, "--title", "-t", help="Include the state machine title in the diagram."),
     orientation: Literal["LR", "TB"] = typer.Option("LR", "--orientation", "-r", help="The orientation of the diagram, either LR (Left-Right) or TB (Top-Bottom)"),
 ) -> None:
+    """Generate a SVG diagram of a SMAL state machine.
+
+    Args:
+        smal_path (Path, optional): The path to the SMAL file.
+        svg_output_dir (Path, optional): The directory where the generated SVG diagram will be written.
+        open (bool, optional): Whether to open the generated SVG after creation. Defaults to False.
+        force (bool, optional): Whether to overwrite existing SVG files if they already exist. Defaults to False.
+        title (bool, optional): Whether to include the state machine title in the diagram. Defaults to True.
+        orientation (Literal["LR", "TB"], optional): The orientation of the diagram, either LR (Left-Right) or TB (Top-Bottom). Defaults to "LR".
+
+    """
     console = Console()
     if not svg_output_dir.exists():
         console.print(f"Created previously non-existent output directory for diagram: [bold cyan]{svg_output_dir}[/bold cyan]")

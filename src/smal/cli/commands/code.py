@@ -10,7 +10,7 @@ from smal.cli.commands.helpers import echo_table
 from smal.cli.commands.validate import JinjaTemplateValidator
 from smal.codegen import MacroRegistry, TemplateRegistry
 from smal.codegen.code_generator import SMALCodeGenerator
-from smal.schemas import SMALFile
+from smal.schemas.state_machine import SMALFile
 
 code_app = typer.Typer(help="Generate code from SMAL files using Jinja2 templates.")
 

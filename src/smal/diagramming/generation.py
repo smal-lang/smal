@@ -3,12 +3,16 @@
 from __future__ import annotations  # Until Python 3.14
 
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from graphviz import Digraph, ExecutableNotFound
 from graphviz import FileExistsError as GraphvizFileExistsError
 
-from smal.schemas import SMALFile, State, StateType, Transition
+from smal.schemas.state import State, StateType
+from smal.schemas.state_machine import SMALFile
+
+if TYPE_CHECKING:
+    from smal.schemas.transition import Transition
 
 
 def all_descendant_states(state: State) -> set[str]:

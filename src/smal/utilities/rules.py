@@ -17,7 +17,6 @@ class RuleLike(Protocol):
     """Protocol defining the structure for an encapsulated validation rule for a SMAL state machine."""
 
     description: str
-    enabled: bool
     group: str | None
 
     @property
@@ -49,12 +48,11 @@ class RuleLike(Protocol):
         """
 
 
-@dataclass(frozen=True)
+@dataclass
 class Rule(RuleLike):
     """Base class for all RuleLike objects."""
 
     description: str = ""
-    enabled: bool = True
     group: str | None = None
 
     @property
@@ -96,7 +94,7 @@ class Rule(RuleLike):
         # NOTE: Not raising exception here, as this is an optional method
 
 
-@dataclass(frozen=True)
+@dataclass
 class NoTransitionIntoRootState(Rule):
     """Rule enforcing that transitions into root states are illegal."""
 
@@ -120,7 +118,7 @@ class NoTransitionIntoRootState(Rule):
                 raise IllegalTransitionError("Cannot transition into the root state.", incoming_transitions[0], machine.name)
 
 
-@dataclass(frozen=True)
+@dataclass
 class NoTransitionOutOfFinalOrTerminal(Rule):
     """Rule enforcing that transitions out of the Final or Terminal pseudostates are illegal."""
 
@@ -143,7 +141,7 @@ class NoTransitionOutOfFinalOrTerminal(Rule):
                 raise IllegalTransitionError("Cannot transition out of a Final or Terminal pseudostate.", t, machine.name)
 
 
-@dataclass(frozen=True)
+@dataclass
 class EntryExitStatesRequireParent(Rule):
     """Rule enforcing that Entry/Exit pseudostates are required to live within a Composite state."""
 
@@ -165,7 +163,7 @@ class EntryExitStatesRequireParent(Rule):
                 raise IllegalStateError("Entry / Exit pseudostates must be children of composite states.", s, machine.name)
 
 
-@dataclass(frozen=True)
+@dataclass
 class DecisionsJunctionsRequireMultiOut(Rule):
     """Rule enforcing that Decision/Junction pseudostates are required to have >= 2 outgoing transitions."""
 
@@ -187,7 +185,7 @@ class DecisionsJunctionsRequireMultiOut(Rule):
                 raise IllegalStateError("Decision / Junction pseudostates must have >=2 outgoing transitions.", s, machine.name)
 
 
-@dataclass(frozen=True)
+@dataclass
 class JoinsRequireMultiInSingleOut(Rule):
     """Rule enforcing that Join pseudostates are required to have >= 2 incoming transitions and exactly 1 outgoing transition."""
 
@@ -212,7 +210,7 @@ class JoinsRequireMultiInSingleOut(Rule):
                     raise IllegalStateError("Join pseudostates must have exactly 1 outgoing transition.", s, machine.name)
 
 
-@dataclass(frozen=True)
+@dataclass
 class ForksRequireSingleInMultiOut(Rule):
     """Rule enforcing that all Fork pseudostates are required to have exactly 1 incoming transition and >= 2 outgoing transitions."""
 
@@ -237,7 +235,7 @@ class ForksRequireSingleInMultiOut(Rule):
                     raise IllegalStateError("Fork pseudostates must have >= 2 outgoing transitions.", s, machine.name)
 
 
-@dataclass(frozen=True)
+@dataclass
 class AllStatesMustBeReachable(Rule):
     """Rule enforcing that all states (and substates) within the state machine must be reachable."""
 

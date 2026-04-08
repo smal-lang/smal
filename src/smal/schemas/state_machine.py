@@ -22,6 +22,7 @@ from smal.schemas.transition import Transition, TransitionMapShorthand
 from smal.schemas.utilities import IdentifierValidationMixin, SemverValidationMixin
 from smal.utilities import constants as SMALConstants
 from smal.utilities.corrections import ALL_CORRECTIONS
+from smal.utilities.persistence import SMALPersistence
 from smal.utilities.rules import ALL_RULES
 
 
@@ -347,8 +348,13 @@ class StateMachine(IdentifierValidationMixin, SemverValidationMixin, BaseModel):
             _context (Any): The validation context provided by Pydantic, which is not used in this method but is required by the signature.
 
         """
+        persistence = SMALPersistence.load() if SMALPersistence.DEFAULT_PATH.exists() else SMALPersistence()
         # Apply all corrections before validating
         for correction in ALL_CORRECTIONS:
+            correction_enabled = persistence.corrections.get(correction.name, True)
+            if not correction_enabled:
+                logging.info("Skipping correction '%s' because it is disabled in persistence settings.", correction.name)
+                continue
             logging.info("Applying correction: %s", correction.name)
             correction.pre_application(self)
             correction.apply(self)
@@ -364,6 +370,10 @@ class StateMachine(IdentifierValidationMixin, SemverValidationMixin, BaseModel):
         # Precompute least common ancestors
         # Evaluate all rules to validate
         for rule in ALL_RULES:
+            rule_enabled = persistence.rules.get(rule.name, True)
+            if not rule_enabled:
+                logging.info("Skipping rule '%s' because it is disabled in persistence settings.", rule.name)
+                continue
             logging.info("Evaluating rule: %s", rule.name)
             rule.pre_evaluation(self)
             rule.evaluate(self)
