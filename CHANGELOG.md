@@ -1,6 +1,47 @@
 # CHANGELOG
 
 
+## v0.4.0 (2026-04-08)
+
+### Features
+
+- Update and clean up SMAL language parsing. Many command fixes.
+  ([#29](https://github.com/aetheric-sh/smal/pull/29),
+  [`ed08ad6`](https://github.com/aetheric-sh/smal/commit/ed08ad69f31de7e0f39edf986bb6c79f0a57959b))
+
+* working on v2 of the language
+
+* cleanup diagram generation
+
+* remove inaccurate docstring
+
+* Fix up macros
+
+* Got simple diagram working
+
+* Fix up shorthand handling
+
+* Codegen working with simple
+
+* codegen working on substates
+
+* diagram working on substates
+
+* clean up ruff warnings and add stub
+
+* Working on template variable validation
+
+* Working on rules/corrections persistence
+
+* Rules and corrections persistence work
+
+fix up substate diagramming rendering
+
+* clean up code app
+
+* Fix up validation app
+
+
 ## v0.3.6 (2026-04-01)
 
 ### Bug Fixes
