@@ -1,5 +1,6 @@
 {% macro c_machine_states(smal) %}
-typedef enum _{{ smal.name | lower }}_state_t {
+typedef enum
+{
 {% for state in smal.get_ordered_flat_global_state_list() %}
     {{ smal.name | upper }}_STATE_{{ state.name | trim | upper }} = {{ state.id | trim }},
 {% endfor %}

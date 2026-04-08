@@ -1,34 +1,45 @@
+"""Module defining the 'validate' command for the SMAL CLI, which validates .smal files and external Jinja2 templates for compliance/compatibility with SMAL."""
+
 from __future__ import annotations  # Until Python 3.14
 
-from collections.abc import Iterator
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import cached_property
-from pathlib import Path
-from typing import Any, ClassVar
+from pathlib import Path  # noqa: TC003 - Move application import to TYPE_CHECKING block. Typer needs this.
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import typer
 from jinja2 import TemplateNotFound, nodes
-from pydantic import BaseModel
 from rich.console import Console
 
 from smal.codegen.code_generator import SMALCodeGenerator
-from smal.schemas import SMALFile
+from smal.schemas.state_machine import SMALFile
 from smal.utilities import constants as SMALConstants
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from pydantic import BaseModel
 
 validate_app = typer.Typer(help="Validate .smal files and external Jinja2 templates for compliance/compatibility with SMAL.")
 
 
 @validate_app.callback(invoke_without_command=True)
 def validate_root(
-    filepath: Path = typer.Argument(..., exists=True, file_okay=True, dir_okay=False, readable=True, help="Path to the .smal or .j2 file to validate."),
+    filepath: Path = typer.Argument(..., exists=True, file_okay=True, dir_okay=False, readable=True, help="Path to the .smal or .j2 file to validate."),  # noqa: B008
 ) -> None:
+    """Validate cmd entrypoint for the SMAL CLI.
+
+    Args:
+        filepath (Path, optional): The path to the .smal or .j2 file to validate.
+
+    """
     console = Console()
     if filepath.suffix in SMALConstants.SupportedFileExtensions.all():
-        with console.status(" SMAL file detected. Validating", spinner="dots"):
-            pass
-    elif filepath.suffix in JinjaTemplateValidator.VALID_EXTENSIONS:
-        with console.status(" Jinja2 codegen template detected. Validating", spinner="dots"):
+        console.print("❌ [red]SMAL file validation is not yet implemented.[/red] 🚀")
+        return
+    if filepath.suffix in JinjaTemplateValidator.VALID_EXTENSIONS:
+        with console.status("Jinja2 codegen template detected. Validating", spinner="dots"):
             validator = JinjaTemplateValidator(filepath)
             validation_result = validator.validate()
             validation_result.echo_report(filepath)
@@ -38,6 +49,8 @@ def validate_root(
 
 @dataclass(frozen=True)
 class TemplateVariableRef:
+    """Dataclass representing a reference to a variable in a Jinja2 template, including its name and location."""
+
     name: str
     line: int
     col: int
@@ -45,6 +58,8 @@ class TemplateVariableRef:
 
 @dataclass(frozen=True)
 class TemplateMacroRef:
+    """Dataclass representing a reference to a macro in a Jinja2 template, including its name, alias, source template, and location."""
+
     name: str
     alias: str | None
     src_template_ref: str | None
@@ -53,12 +68,20 @@ class TemplateMacroRef:
 
 
 class Severity(str, Enum):
+    """Enumeration of validation issue severity levels, with associated colors for console output."""
+
     ERROR = "error"
     WARNING = "warning"
     INFO = "info"
 
     @cached_property
     def color(self) -> str:
+        """Get the rich console color associated with this Severity.
+
+        Returns:
+            str: The rich console color associated with this Severity.
+
+        """
         return {
             Severity.ERROR: "red",
             Severity.WARNING: "yellow",
@@ -68,6 +91,8 @@ class Severity(str, Enum):
 
 @dataclass
 class SMALValidationIssue:
+    """Dataclass representing a validation issue found during template validation, including its severity, message, location, and an optional code for categorization."""
+
     severity: Severity
     message: str
     location: tuple[int, int]
@@ -76,17 +101,40 @@ class SMALValidationIssue:
 
 @dataclass
 class SMALValidationResult:
+    """Dataclass representing the result of validating a SMAL template, including the template name and a list of validation issues."""
+
     template_name: str
     issues: list[SMALValidationIssue] = field(default_factory=list)
 
     def add_issue(self, severity: Severity, message: str, location: tuple[int, int], code: str) -> None:
+        """Add an issue to the result.
+
+        Args:
+            severity (Severity): The severity of the issue.
+            message (str): The message describing the issue.
+            location (tuple[int, int]): The location of the issue in the template (line, column).
+            code (str): The code associated with the issue.
+
+        """
         self.issues.append(SMALValidationIssue(severity, message, location, code))
 
     @property
     def ok(self) -> bool:
+        """Get whether or not this validation result has any issues.
+
+        Returns:
+            bool: True if there are no issues, False otherwise.
+
+        """
         return all(issue.severity != Severity.ERROR for issue in self.issues)
 
     def echo_report(self, template_path: Path | None = None) -> None:
+        """Echo a report of the validation result to a rich.Console.
+
+        Args:
+            template_path (Path | None, optional): The path to the template file. Defaults to None.
+
+        """
         from rich.console import Console
         from rich.padding import Padding
         from rich.text import Text
@@ -108,9 +156,22 @@ class SMALValidationResult:
 
 
 class JinjaTemplateValidator:
+    """Class for validating Jinja2 templates for use as SMAL code generation templates."""
+
     VALID_EXTENSIONS: ClassVar[set[str]] = {".j2", ".jinja", ".jinja2", ".tpl", ".template"}
 
     def __init__(self, template: str | Path) -> None:
+        """Initialize the JinjaTemplateValidator.
+
+        Args:
+            template (str | Path): The name of a built-in SMAL template or the path to an external Jinja2 template file.
+
+        Raises:
+            ValueError: If the provided template is not a recognized built-in template name or a valid file path with a supported extension.
+            RuntimeError: If there is an issue loading the template or configuring the Jinja2 environment.
+            RuntimeError: If a macro template referenced by a built-in template is found to be invalid during recursive validation.
+
+        """
         self._generator = SMALCodeGenerator()
         if isinstance(template, str):
             self.env = self._generator.env_builtin
@@ -134,6 +195,12 @@ class JinjaTemplateValidator:
         self.ast = self.env.parse(self.template_source)
 
     def validate(self) -> SMALValidationResult:
+        """Validate a SMAL file or external template for compliance with SMAL.
+
+        Returns:
+            SMALValidationResult: The result of the validation, including any issues found.
+
+        """
         validation_result = SMALValidationResult(self.template_name)
         self._validate_macros(validation_result)
         self._validate_variables(validation_result)
@@ -141,6 +208,12 @@ class JinjaTemplateValidator:
 
     @cached_property
     def macro_calls(self) -> set[str]:
+        """Get a unique set of macro calls in a jinja2 template.
+
+        Returns:
+            set[str]: The set of macro names called in the template.
+
+        """
         macro_calls = set()
         for call in self.ast.find_all(nodes.Call):
             if isinstance(call.node, nodes.Name):
@@ -149,6 +222,12 @@ class JinjaTemplateValidator:
 
     @cached_property
     def loop_variables(self) -> set[str]:
+        """Get a unique set of loop variables in a jinja2 template.
+
+        Returns:
+            set[str]: The set of loop variable names used in the template.
+
+        """
         loop_vars = set()
         for loop in self.ast.find_all(nodes.For):
             target = loop.target
@@ -161,6 +240,15 @@ class JinjaTemplateValidator:
         return loop_vars
 
     def macros(self) -> Iterator[TemplateMacroRef]:
+        """Get an iterator over the macros in a jinja2 template.
+
+        Raises:
+            TypeError: If a macro reference cannot be validated due to an unexpected AST node structure.
+
+        Yields:
+            Iterator[TemplateMacroRef]: An iterator over the macro references in the template.
+
+        """
         for node in self.ast.find_all(nodes.FromImport):
             src_template_ref = node.template.value if isinstance(node.template, nodes.Const) else None
             if not src_template_ref:
@@ -172,9 +260,15 @@ class JinjaTemplateValidator:
                 elif isinstance(name, tuple):
                     yield TemplateMacroRef(name[0], name[1], src_template_ref, node.lineno, col)
                 else:
-                    raise RuntimeError(f"Unable to validate jinja2 macro: {src_template_ref}")
+                    raise TypeError(f"Unable to validate jinja2 macro: {src_template_ref}")
 
     def variables(self) -> Iterator[TemplateVariableRef]:
+        """Get an iterator over the variables in a jinja2 template.
+
+        Yields:
+            Iterator[TemplateVariableRef]: The next variable reference in the template, including its name and location.
+
+        """
         for node in self.ast.find_all(nodes.Name):
             if node.name in self.macro_calls:
                 continue  # Ignore calls to macros, we validate those elsewhere
@@ -189,6 +283,15 @@ class JinjaTemplateValidator:
 
     @staticmethod
     def is_jinja2_builtin(symbol: str) -> bool:
+        """Get whether or not the given symbol is a jinja2 template keyword.
+
+        Args:
+            symbol (str): The symbol to check.
+
+        Returns:
+            bool: True if the symbol is a Jinja2 built-in, False otherwise.
+
+        """
         # This is a simplified check. In reality, Jinja2 has many built-in variables and functions.
         jinja2_builtins = {"loop", "self", "super", "config", "namespace"}
         return symbol in jinja2_builtins
@@ -231,10 +334,7 @@ class JinjaTemplateValidator:
                 return True  # Allow arbitrary metadata from the SMAL file
             prefix_dot = symbol + "."
             prefix_arr = symbol + "[]"
-            for p in self.allowed_paths:
-                if p.startswith(prefix_dot) or p.startswith(prefix_arr):
-                    return True
-            return False
+            return any(p.startswith((prefix_dot, prefix_arr)) for p in self.allowed_paths)
 
         for ref in self.variables():
             if self.is_jinja2_builtin(ref.name):
@@ -254,6 +354,18 @@ def extract_paths_from_model_schema(
     root_schema: dict[str, Any] | None = None,
     visited_refs: set[str] | None = None,
 ) -> set[str]:
+    """Extract all unique member variable paths from a pydantic model schema.
+
+    Args:
+        model_schema (dict[str, Any]): The JSON schema of the model to extract paths from.
+        prefix (str, optional): The prefix to use for the current path. Defaults to "".
+        root_schema (dict[str, Any] | None, optional): The root schema for resolving $ref references. Defaults to None.
+        visited_refs (set[str] | None, optional): A set of visited $ref references to avoid infinite recursion. Defaults to None.
+
+    Returns:
+        set[str]: A set of unique member variable paths.
+
+    """
     if root_schema is None:
         root_schema = model_schema
     if visited_refs is None:
@@ -326,10 +438,11 @@ def extract_paths_from_model_schema(
 
 
 def generate_allowed_variable_paths_from_model(model: type[BaseModel], root: str = "smal") -> set[str]:
-    """Generates a set of allowed variable paths for a given Pydantic model by analyzing its JSON schema.
+    """Generate a set of allowed variable paths for a given Pydantic model by analyzing its JSON schema.
 
     Args:
         model (type[BaseModel]): The Pydantic model class.
+        root (str): The root variable name to prefix all paths with. Defaults to "smal".
 
     Returns:
         set[str]: A set of allowed variable paths.

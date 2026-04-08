@@ -7,18 +7,16 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
-from smal.schemas.state import EphemeralState, StateType
-from smal.schemas.transition import EphemeralTransition
+from smal.schemas.state import StateType
 
 if TYPE_CHECKING:
-    from smal.schemas import StateMachine
+    from smal.schemas.state_machine import StateMachine
 
 
 class CorrectionLike(Protocol):
     """Protocol defining the structure for an encapsulated correction for a SMAL state machine."""
 
     description: str
-    enabled: bool
     group: str | None
 
     @property
@@ -50,12 +48,11 @@ class CorrectionLike(Protocol):
         """
 
 
-@dataclass(frozen=True)
+@dataclass
 class Correction(CorrectionLike):
     """Base class for all CorrectionLike objects."""
 
     description: str = ""
-    enabled: bool = True
     group: str | None = None
 
     @property
@@ -97,86 +94,7 @@ class Correction(CorrectionLike):
         # NOTE: Not raising exception here, as this is an optional method
 
 
-@dataclass(frozen=True)
-class InjectRootEphemeralInitialState(Correction):
-    """Correction that takes the root-level state marked as initial, and creates an ephemeral initial state that transitions into the root-level state to preserve the label."""
-
-    description: str = "Takes the root-level state marked as initial, and creates an ephemeral initial state that transitions into the root-level state to preserve the label."
-
-    def apply(self, machine: StateMachine) -> None:
-        """Apply this correction.
-
-        Args:
-            machine (StateMachine): The state machine the correction is being applied to.
-
-        """
-        root_initial_states = [s for s in machine.states if s.type == StateType.INITIAL]
-        if len(root_initial_states) != 1:
-            raise RuntimeError("Root-level initial states can only have 1 ephemeral incoming transition. This should never happen.")
-        root_init = root_initial_states[0]
-        ephemeral_init = EphemeralState(f"__eph_initial_{root_init.name}", root_init, morphed_type=StateType.SIMPLE)
-        machine.add_ephemeral_state(ephemeral_init)
-        eph_init_to_root_init = EphemeralTransition(src_state=ephemeral_init.name, evt="init", actions=[], tgt_state=root_init.name, tgt_entry_evt=None)
-        machine.add_ephemeral_transition(eph_init_to_root_init)
-
-
-@dataclass(frozen=True)
-class RedirectCompositeTargetStateTransitions(Correction):
-    """Correction that redirects all transitions that would target a composite state directly to instead target that composite state's internal initial substate."""
-
-    description: str = "Redirects all transitions that would target a composite state directly to instead target that composite state's internal initial substate."
-
-    def apply(self, machine: StateMachine) -> None:
-        """Apply this correction.
-
-        Args:
-            machine (StateMachine): The state machine the correction is being applied to.
-
-        """
-        composite_state_map = {s.name: s for s in machine.composite_states}
-        for t in machine.transitions:
-            if t.tgt_state in composite_state_map:
-                composite_state = composite_state_map[t.tgt_state]
-                initial_substate = composite_state.initial_substate
-                logging.warning(
-                    "CORRECTION: Detected transition directly targeting composite state '%s'. Redirecting to internal initial substate '%s'...",
-                    t.tgt_state,
-                    initial_substate.name,
-                )
-                # Create ephemeral initial state
-                logging.debug(
-                    "Adding ephemeral initial state within composite state '%s'",
-                    t.tgt_state,
-                )
-                ephemeral_initial_state = EphemeralState(f"__eph_initial_{t.tgt_state}__", initial_substate, morphed_type=StateType.SIMPLE)
-                machine.add_ephemeral_state(ephemeral_initial_state)
-                # Create 2 ephemeral transitions:
-                # 1. from original source to ephemeral initial state
-                logging.debug(
-                    "Adding ephemeral transition from state '%s' to ephemeral initial state",
-                    t.src_state,
-                )
-                osrc_to_eph_init = EphemeralTransition(src_state=t.src_state, evt=t.evt, actions=t.actions, tgt_state=ephemeral_initial_state.name, tgt_entry_evt=t.tgt_entry_evt)
-                machine.add_ephemeral_transition(osrc_to_eph_init)
-                # 2. from ephemeral initial state to composite initial state
-                logging.debug(
-                    "Adding ephemeral transition from ephemeral initial state to composite initial state '%s'",
-                    initial_substate.name,
-                )
-                eph_init_to_comp_init = EphemeralTransition(
-                    src_state=ephemeral_initial_state.name,
-                    evt=t.evt,
-                    actions=t.actions,
-                    tgt_state=initial_substate.name,
-                    tgt_entry_evt=t.tgt_entry_evt,
-                )
-                machine.add_ephemeral_transition(eph_init_to_comp_init)
-                # Set the real transition as not graphable
-                logging.debug("Marking original transition %s as not graphable to hide it from diagram", t)
-                t.set_graphable(False)
-
-
-@dataclass(frozen=True)
+@dataclass
 class HideCompositeToInitialSubstateTransitions(Correction):
     """Correction that detects transitions from the root of a composite state to its initial substate and hides them from diagramming."""
 
@@ -190,17 +108,17 @@ class HideCompositeToInitialSubstateTransitions(Correction):
 
         """
         for t in machine.transitions:
-            src = machine.get_state(t.src_state)
+            src = machine.get_state(t.src)
             if not src.is_composite:
                 continue
-            tgt = machine.get_state(t.tgt_state)
+            tgt = machine.get_state(t.tgt)
             if tgt.parent_name != src.name and tgt.type == StateType.INITIAL:
                 continue
             logging.debug("CORRECTION: Hiding a composite root to initial substate transition from diagramming...")
             t.set_graphable(False)
 
 
-@dataclass(frozen=True)
+@dataclass
 class HideCompositeToRootSimpleStateTransitions(Correction):
     """Correction that detects transitions from the root of a composite state to root-level simple states and hides them from diagramming."""
 
@@ -214,10 +132,10 @@ class HideCompositeToRootSimpleStateTransitions(Correction):
 
         """
         for t in machine.transitions:
-            src = machine.get_state(t.src_state)
+            src = machine.get_state(t.src)
             if not src.is_composite:
                 continue
-            tgt = machine.get_state(t.tgt_state)
+            tgt = machine.get_state(t.tgt)
             if tgt.is_substate:
                 continue
             logging.debug("CORRECTION: Hiding a composite root to root-level simple state transition from diagramming...")
@@ -225,8 +143,6 @@ class HideCompositeToRootSimpleStateTransitions(Correction):
 
 
 ALL_CORRECTIONS: list[CorrectionLike] = [
-    InjectRootEphemeralInitialState(),
-    RedirectCompositeTargetStateTransitions(),
     HideCompositeToInitialSubstateTransitions(),
     HideCompositeToRootSimpleStateTransitions(),
 ]

@@ -1,0 +1,19 @@
+machine: Substates
+version: 1.0.0
+description: An example of a SMAL state machine that defines states that contain substates.
+metadata: {header_guard: SUBSTATES}
+constants: {}
+errors: []
+states:
+    - idle_i
+    - name: working
+      substates: [preparing_i, executing, finalizing]
+transitions:
+    idle:
+        start_work: preparing
+    preparing:
+        preparation_done: executing
+    executing:
+        execution_done: finalizing
+    finalizing:
+        finalized: idle

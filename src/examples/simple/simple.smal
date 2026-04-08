@@ -1,0 +1,12 @@
+machine: Simple
+version: 1.0.0
+description: A simple example of a state machine written using SMAL standard notation.
+metadata: {}
+constants: {}
+errors: []
+states:
+    - {name: idle, type: initial}
+    - {name: working, type: simple}
+transitions:
+    - {src: idle, evt: start_work, actions: [], tgt: working, tgt_entry_evt: null}
+    - {src: working, evt: end_work, actions: [], tgt: idle, tgt_entry_evt: null}

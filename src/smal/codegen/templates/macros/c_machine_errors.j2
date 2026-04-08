@@ -1,5 +1,6 @@
 {% macro c_machine_errors(smal) %}
-typedef enum _{{ smal.name | lower }}_error_t {
+typedef enum
+{
 {% for error in smal.errors %}
     {{ smal.name | upper }}_ERROR_{{ error.name | upper }} = {{ error.id }},
 {% endfor %}

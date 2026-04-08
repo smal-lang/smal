@@ -1,8 +1,11 @@
 from __future__ import annotations  # Until Python 3.14
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-from smal.schemas import SMALFile
+from smal.schemas.state_machine import SMALFile
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_serde(tmp_path: Path) -> None:

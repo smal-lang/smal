@@ -1,3 +1,5 @@
+"""Module defining built-in templates for SMAL code generation."""
+
 from __future__ import annotations  # Until Python 3.14
 
 from collections.abc import Callable
@@ -11,6 +13,8 @@ SMALTemplateContextComputeFn: TypeAlias = Callable[[SMALFile], Any]
 
 @dataclass(frozen=True)
 class SMALTemplate:
+    """Model describing a SMAL code generation template."""
+
     name: str
     filename: str
     lang: str
@@ -21,36 +25,89 @@ class SMALTemplate:
 
 
 class TemplateRegistry:
-    _templates = {
-        "c_machine_hdr": SMALTemplate(
-            name="c_machine_hdr",
-            filename="c_machine_hdr.j2",
-            lang="c",
-            description="C header file for the state machine",
-            output_extension=".h",
-            computed_extra_context={
-                "header_guard": lambda smal: f"{smal.name.rstrip('_H')}_H".upper(),
-            },
-        ),
-    }
+    """Namespace class for managing SMAL code generation templates."""
+
+    # To prevent a mutable default class variable, we initialize the templates dictionary lazily in the _get_templates method
+    _templates: dict[str, SMALTemplate] | None = None
+
+    @classmethod
+    def _get_templates(cls) -> dict[str, SMALTemplate]:
+        """Get the dictionary of templates, initializing it if it has not already been initialized."""
+        if cls._templates is None:
+            cls._templates = {
+                "c_machine_hdr": SMALTemplate(
+                    name="c_machine_hdr",
+                    filename="c_machine_hdr.j2",
+                    lang="c",
+                    description="C header file for the state machine",
+                    output_extension=".h",
+                    computed_extra_context={
+                        "header_guard": lambda smal: f"{smal.name.strip().rstrip('_H')}_H".upper(),
+                    },
+                ),
+            }
+        return cls._templates
 
     def __new__(cls) -> None:
+        """Create a new instance of the TemplateRegistry.
+
+        Raises:
+            NotImplementedError: TemplateRegistry is a namespace class and cannot be instantiated.
+
+        """
         raise NotImplementedError("TemplateRegistry is a namespace class and cannot be instantiated.")
 
     @classmethod
     def get(cls, name: str) -> SMALTemplate:
-        if name not in cls._templates:
+        """Get a SMAL template by name.
+
+        Args:
+            name (str): The name of the template to retrieve.
+
+        Raises:
+            ValueError: If the template with the given name does not exist.
+
+        Returns:
+            SMALTemplate: The SMAL template with the given name.
+
+        """
+        templates = cls._get_templates()
+        if name not in templates:
             raise ValueError(f"Unknown template: {name}")
-        return cls._templates[name]
+        return templates[name]
 
     @classmethod
     def list_templates(cls) -> list[SMALTemplate]:
-        return list(cls._templates.values())
+        """List all builtin SMAL templates.
+
+        Returns:
+            list[SMALTemplate]: The list of all builtin SMAL templates.
+
+        """
+        templates = cls._get_templates()
+        return list(templates.values())
 
     @classmethod
     def list_template_names(cls) -> list[str]:
-        return list(cls._templates.keys())
+        """List all builtin SMAL template names.
+
+        Returns:
+            list[str]: The list of all builtin SMAL template names.
+
+        """
+        templates = cls._get_templates()
+        return list(templates.keys())
 
     @classmethod
     def has_template(cls, name: str) -> bool:
-        return name in cls._templates
+        """Get whether or not a template with the given name exists.
+
+        Args:
+            name (str): The name of the template to check for.
+
+        Returns:
+            bool: True if the template with the given name exists, False otherwise.
+
+        """
+        templates = cls._get_templates()
+        return name in templates
