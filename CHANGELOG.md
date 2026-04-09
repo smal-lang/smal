@@ -1,6 +1,28 @@
 # CHANGELOG
 
 
+## v0.4.1 (2026-04-09)
+
+### Bug Fixes
+
+- Add the debug command ([#30](https://github.com/aetheric-sh/smal/pull/30),
+  [`a04ea16`](https://github.com/aetheric-sh/smal/commit/a04ea166295de110626c9be72e5b37963964e95d))
+
+* got basic debug cmd working
+
+* make compatible with python 3.10
+
+* debug command works e2egit status!
+
+* update debug profile
+
+* add helpful message for debug script dependencies
+
+* update gitignore
+
+* ready
+
+
 ## v0.4.0 (2026-04-08)
 
 ### Features
