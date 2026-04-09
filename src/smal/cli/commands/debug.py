@@ -423,7 +423,25 @@ def debug_root(
             raise typer.Exit(code=1)
         module = importlib.util.module_from_spec(spec)
         sys.modules["debug_module"] = module
-        spec.loader.exec_module(module)
+        try:
+            spec.loader.exec_module(module)
+        except ModuleNotFoundError as e:
+            console.print(
+                f"[red]Failed to import script {script_path}:[/red]\n"
+                f"[yellow]Missing dependency: {e.name}[/yellow]\n\n"
+                "[cyan]To fix this, install the required dependencies into the same Python virtual environment as SMAL:[/cyan]\n"
+                f"[yellow]  pip install {e.name}[/yellow]",
+            )
+            raise typer.Exit(code=1) from e
+        except ImportError as e:
+            console.print(
+                f"[red]Failed to import script {script_path}:[/red]\n"
+                f"[yellow]{e}[/yellow]\n\n"
+                "[cyan]The script or one of its dependencies could not be imported.[/cyan]\n"
+                "[cyan]Make sure all required dependencies are installed in the same Python virtual environment as SMAL:[/cyan]\n"
+                "[yellow]  pip install <dependency_name>[/yellow]",
+            )
+            raise typer.Exit(code=1) from e
     # Get the "harvest" function provided by the script the user gave us
     if not hasattr(module, "harvest"):
         console.print(f"[red]Required function 'harvest' not found in {script_path}[/red]")
