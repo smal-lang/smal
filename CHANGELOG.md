@@ -1,6 +1,24 @@
 # CHANGELOG
 
 
+## v0.4.3 (2026-04-10)
+
+### Bug Fixes
+
+- Updates to the debug CLI command ([#32](https://github.com/aetheric-sh/smal/pull/32),
+  [`a3d5847`](https://github.com/aetheric-sh/smal/commit/a3d5847b8522b59ac19b102371f8de8d80010c3e))
+
+* arbitrary harvest commands work now
+
+* fixed output escaping
+
+* update version
+
+* improve timestamp logging
+
+* done
+
+
 ## v0.4.2 (2026-04-09)
 
 ### Bug Fixes
