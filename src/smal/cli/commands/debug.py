@@ -11,7 +11,7 @@ import typer
 from rich.console import Console
 from rich.markup import escape
 
-from smal.cli.commands.helpers import echo_table, prefer_inner_rich_statuses
+from smal.cli.commands.helpers import echo_table
 from smal.schemas.debug import SMALDebugEntry, SMALDebugEntryType
 from smal.schemas.state_machine import SMALFile, StateMachine
 
@@ -178,21 +178,19 @@ def debug_cmd(
         console.print("[red]Required function 'harvest' is not callable[/red]")
         raise typer.Exit(code=1)
     # Now, harvest the data using the imported function, passing the machine name and any extra kwargs from the CLI
-    with (
-        prefer_inner_rich_statuses(),  # To allow the imported harvest function to use its own status spinners without flicker
-        console.status(
-            f"Gathering debug data for state machine: [bold cyan]{machine_name}[/bold cyan]",
-            spinner="dots",
-        ),
-    ):
-        try:
-            raw_data = harvest_func(machine_name, **extra_kwargs)
-        except Exception as e:
-            console.print(f"[red]Failed to harvest debug data: {e}[/red]")
-            raise typer.Exit(code=1) from e
-        if not isinstance(raw_data, bytearray):
-            console.print(f"[red]Harvest function returned {type(raw_data).__name__}, expected bytearray[/red]")
-            raise typer.Exit(code=1)
+    console.print(
+        f"Harvesting debug data for state machine: [bold]{machine_name}[/bold]"
+        f" using function [cyan]harvest[/cyan] from script [cyan]{script_path}[/cyan]"
+        f" with extra kwargs: {extra_kwargs}",
+    )
+    try:
+        raw_data = harvest_func(machine_name, **extra_kwargs)
+    except Exception as e:
+        console.print(f"[red]Failed to harvest debug data: {e}[/red]")
+        raise typer.Exit(code=1) from e
+    if not isinstance(raw_data, bytearray):
+        console.print(f"[red]Harvest function returned {type(raw_data).__name__}, expected bytearray[/red]")
+        raise typer.Exit(code=1)
     # Deserialize the debug data into SMALDebugEntry objects
     with console.status(f"Deserializing debug entries: [bold cyan]{len(raw_data)} bytes[/bold cyan]", spinner="dots"):
         try:
