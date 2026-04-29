@@ -106,7 +106,7 @@ static inline void smal_dbg_ring_clear(smal_dbg_ring_t *ring)
  *
  * @param ring The ring buffer structure to check.
  * @return true if the ring buffer is empty (i.e. entry_count is 0), or if the ring pointer is NULL (considered empty in this case).
- * @return false if the ring buffer contains one or more valid entries, or if the ring pointer is NULL (considered empty in this case).
+ * @return false if the ring buffer contains one or more valid entries.
  */
 static inline bool smal_dbg_ring_is_empty(const smal_dbg_ring_t *ring)
 {
@@ -458,12 +458,10 @@ static inline bool smal_dbg_log_error(smal_dbg_ring_t *ring, int32_t error_code,
 static inline void smal_dbg_flush(bool null_terminate, smal_dbg_flush_status_t *flush_status, smal_dbg_ring_t *ring,
                                   void *user_ctx)
 {
-    if (SMAL_DBG_MAX_ENTRIES_PER_TRANSMIT == 0u)
-    {
-        return;
-    }
-
-    if ((flush_status == NULL) || (ring == NULL))
+#if SMAL_DBG_MAX_ENTRIES_PER_TRANSMIT == 0u
+    return;
+#else /* SMAL_DBG_MAX_ENTRIES_PER_TRANSMIT == 0u */
+    if ((flush_status == NULL) || (ring == NULL) || (ring->capacity == 0u) || (ring->entries == NULL))
     {
         return;
     }
@@ -505,6 +503,7 @@ static inline void smal_dbg_flush(bool null_terminate, smal_dbg_flush_status_t *
         flush_status->entry_transmit_complete = true;
     }
     smal_dbg_flush_packet(sizeof(smal_dbg_entry_t) * num_entries_in_pkt, pkt, user_ctx);
+#endif /* SMAL_DBG_MAX_ENTRIES_PER_TRANSMIT == 0u */
 }
 
 #endif /* SMAL_DBG_H */
