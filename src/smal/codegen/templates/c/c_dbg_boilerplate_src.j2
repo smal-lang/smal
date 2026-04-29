@@ -1,0 +1,20 @@
+{% from "macros/c/c_autogen_banner_editable.j2" import c_autogen_banner_editable %}
+{{ c_autogen_banner_editable() }}
+#include <stdint.h>
+#include "smal_dbg.h"
+
+
+uint32_t smal_dbg_get_timestamp_ms(void)
+{
+    return 0u; // TODO: Implement this function to return the current timestamp in milliseconds, e.g. by using a hardware timer or the system tick count.
+}
+
+void smal_dbg_flush_packet(size_t pkt_len_bytes, const void *pkt, void *user_ctx)
+{
+    if (user_ctx == NULL)
+    {
+        return;
+    }
+    // TODO: Implement this function to transmit the given packet over the desired interface (e.g. UART, USB, etc.) using the provided user context for any necessary state or configuration.
+    // The pkt_len_bytes parameter indicates the length of the packet in bytes, and the pkt parameter points to the packet data to be transmitted.
+}

@@ -1,0 +1,623 @@
+{% from "macros/c/c_autogen_banner.j2" import c_autogen_banner %}
+{{ c_autogen_banner() }}
+#ifndef SMAL_DBG_H
+#define SMAL_DBG_H
+
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
+// This should be defined by the application code before including this header, to specify the maximum number of packets to include in each transmit batch.
+#ifndef SMAL_DBG_MAX_ENTRIES_PER_TRANSMIT
+#define SMAL_DBG_MAX_ENTRIES_PER_TRANSMIT 1u
+#endif /* #ifndef SMAL_DBG_MAX_ENTRIES_PER_TRANSMIT */
+
+#ifndef BIT
+#define BIT(x) (1u << (x))
+#endif /* #ifndef BIT */
+
+#ifndef MIN
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#endif /* #ifndef MIN */
+
+/**
+ * @brief Get the current timestamp in milliseconds.
+ *
+ * @return uint32_t The current timestamp in milliseconds.
+ */
+uint32_t smal_dbg_get_timestamp_ms(void);
+
+/**
+ * @brief Flush a single debug packet. A packet can contain one or more debug entries,
+ *        depending on how many have been logged since the last flush and the SMAL_DBG_MAX_ENTRIES_PER_TRANSMIT limit.
+ *
+ * @param pkt_len_bytes The length of the packet in bytes.
+ * @param pkt A pointer to the packet data.
+ * @param user_ctx A user-defined context pointer that can be used to pass additional information to the flush function.
+ */
+void smal_dbg_flush_packet(size_t pkt_len_bytes, const void *pkt, void *user_ctx);
+
+/**
+ * @brief Enumeration of debug entry types.
+ *
+ */
+typedef enum
+{
+    SMAL_DBG_ENTRY_TYPE_NONE = 0u,
+    SMAL_DBG_ENTRY_TYPE_STATE_TRANSITION = BIT(0),
+    SMAL_DBG_ENTRY_TYPE_EVENT_RX = BIT(1),
+    SMAL_DBG_ENTRY_TYPE_EVENT_TX = BIT(2),
+    SMAL_DBG_ENTRY_TYPE_CMD_RX = BIT(3),
+    SMAL_DBG_ENTRY_TYPE_CMD_TX = BIT(4),
+    SMAL_DBG_ENTRY_TYPE_DATA_READ = BIT(5),
+    SMAL_DBG_ENTRY_TYPE_DATA_WRITE = BIT(6),
+    SMAL_DBG_ENTRY_TYPE_ERROR = BIT(7),
+} smal_dbg_entry_type_t;
+
+/**
+ * @brief Structure defining a state transition payload, which can be used for state transition entries in the debug log.
+ *
+ */
+typedef struct
+{
+    uint16_t src_state; // The source state before the transition. The interpretation of this field can depend on the context, e.g. it could be a state ID, a state index, etc.
+    uint16_t tgt_state; // The target state after the transition. The interpretation of this field can depend on the context, e.g. it could be a state ID, a state index, etc.
+    uint16_t evt; // The event that triggered the transition. The interpretation of this field can depend on the context, e.g. it could be an event ID, an event index, etc.
+    int16_t status; // The status of the transition, e.g. success, failure, error code, etc. The interpretation of this field can depend on the context, e.g. it could be a status code, a boolean success/failure indicator, etc.
+} smal_dbg_transition_payload_t;
+
+/**
+ * @brief Structure defining a message payload, which can be used for event or command entries in the debug log.
+ *
+ */
+typedef struct
+{
+    uint16_t identifier; // The identifier of the event or command. The interpretation of this field can depend on the context, e.g. it could be an event ID, a command ID, etc.
+    uint16_t data_len; // The length of the data associated with the event or command, in bytes. This can be used to indicate the size of the payload or parameters, if any.
+    uint32_t value; // A value associated with the event or command. The interpretation of this field can depend on the context, e.g. it could be a parameter value, a status code, etc.
+} smal_dbg_message_payload_t;
+
+/**
+ * @brief Structure defining a data read/write payload, which can be used for data read or write entries in the debug log.
+ *
+ */
+typedef struct
+{
+    uint32_t address; // The address that was read from or written to. The interpretation of this field can depend on the context, e.g. it could be a memory address, a register address, etc.
+    uint32_t data_len; // The length of the data that was read or written, in bytes. This can be used to indicate the size of the operation, e.g. 1 for byte, 2 for half-word, 4 for word, etc.
+} smal_dbg_data_payload_t;
+
+/**
+ * @brief Structure defining an error payload, which can be used for error entries in the debug log.
+ *
+ */
+typedef struct
+{
+    int32_t error_code; // Negative values can indicate different error types or categories, while non-negative values can be used for specific error codes within those categories.
+    uint32_t detail; // Additional detail about the error, which can be used for debugging purposes. The interpretation of this field can depend on the error_code, e.g. it could be an address, a value, a bitmask, etc.
+} smal_dbg_error_payload_t;
+
+/**
+ * @brief Union defining the payload of a debug entry, which can be interpreted differently based on the entry type.
+ *        The size of this union should be 8 bytes, which is the size of the largest payload type defined
+ *        (in this case, the message payload), to ensure that it can hold any of the payload types without overflow.
+ *        The raw_words field can be used for raw access to the payload as two 32-bit words if needed, but it should
+ *        not be used to store data directly since it may not be portable across different architectures or compilers
+ *        due to potential differences in endianness and padding.
+ *
+ */
+typedef union
+{
+    smal_dbg_transition_payload_t transition; // Payload for state transition entries
+    smal_dbg_message_payload_t message; // Payload for event/command entries
+    smal_dbg_data_payload_t data; // Payload for data read/write entries
+    smal_dbg_error_payload_t error; // Payload for error entries
+    // NOTE: Any other types of payloads can be added here as needed, as long as the total size does not exceed 8 bytes.
+    uint32_t raw_words[2]; // For raw access to the payload as two 32-bit words, if needed.
+} smal_dbg_payload_t; // Total size: 8 bytes (the largest of the payload types, or the raw_words array)
+
+/**
+ * @brief Structure defining a SMAL debug entry, which represents a single log entry in the debug ring buffer.
+ *
+ */
+typedef struct
+{
+    uint32_t entry_type; // Bitmask indicating the type of the entry, e.g. state transition, event, command, data read/write, error, etc. 4 bytes
+    uint32_t timestamp_ms; // Timestamp in milliseconds when the entry was logged. 4 bytes
+    smal_dbg_payload_t
+    payload; // The payload of the entry, which can be interpreted differently based on the entry type. 8 bytes
+} smal_dbg_entry_t;  // Total size: 16 bytes
+
+/**
+ * @brief Structure defining the SMAL debugging ring buffer, which holds debug entries along with indices and counters to manage the buffer state.
+ *
+ */
+typedef struct
+{
+    uint16_t oldest_index; // The read head index, i.e. the index of the oldest entry in the ring. 2 bytes
+    uint16_t write_index; // The write head index, i.e. the index where the next entry will be written. 2 bytes
+    uint16_t entry_count; // The number of valid entries currently in the ring. 2 bytes
+    uint16_t capacity; // The maximum number of entries the ring can hold. 2 bytes
+    uint16_t overwrite_count; // The number of times entries have been overwritten. 2 bytes
+    smal_dbg_entry_t *entries; // Pointer to the array of entries. 16 bytes each
+} smal_dbg_ring_t; // Total size: 24 bytes + (capacity * 16 bytes)
+
+/**
+ * @brief Structure defining the status of an ongoing flush cycle of the SMAL debug ring buffer,
+ *        which is used to manage the state and progress of flushing entries from the ring buffer
+ *        in batches. This structure should be initialized before starting a flush cycle and will
+ *        be updated by the smal_dbg_flush function as it sends packets of entries until the flush
+ *        cycle is complete.
+ *
+ */
+typedef struct
+{
+    uint16_t num_entries_sent; // The number of entries that have been sent so far in the current flush cycle. 2 bytes
+    uint16_t entry_count; // The total number of entries that need to be sent in the current flush cycle, i.e. the number of entries that were in the ring at the start of the flush. 2 bytes
+    uint16_t oldest_idx; // The index of the oldest entry in the ring at the start of the flush cycle. 2 bytes
+    bool active; // Indicates whether a flush cycle is currently active. 1 byte
+    bool entry_transmit_complete; // Indicates whether the entry transmission for the current flush cycle is complete. 1 byte
+} smal_dbg_flush_status_t; // Total size: 8 bytes
+
+/**
+ * @brief Initialize the flush status structure to its default values. This should be called before starting a new flush cycle.
+ *
+ * @param flush_status Pointer to the flush status structure to initialize.
+ */
+static inline void smal_dbg_flush_status_init(smal_dbg_flush_status_t *flush_status)
+{
+    if (flush_status != NULL)
+    {
+        flush_status->num_entries_sent = 0u;
+        flush_status->entry_count = 0u;
+        flush_status->oldest_idx = 0u;
+        flush_status->active = false;
+        flush_status->entry_transmit_complete = false;
+    }
+}
+
+/**
+ * @brief Initialize a SMAL debug ring buffer with the provided storage and capacity. This should be called before using the ring buffer to log entries.
+ *
+ * @param ring The ring buffer structure to initialize.
+ * @param storage Pointer to the array of smal_dbg_entry_t that will be used as storage for the ring buffer. The size of this array should be at least equal to the capacity.
+ * @param capacity The maximum number of entries the ring buffer can hold. This should be less than or equal to the size of the storage array provided.
+ */
+static inline void smal_dbg_ring_init(smal_dbg_ring_t *ring, smal_dbg_entry_t *storage, uint16_t capacity)
+{
+    if (ring == NULL)
+    {
+        return;
+    }
+    ring->oldest_index = 0u;
+    ring->write_index = 0u;
+    ring->entry_count = 0u;
+    ring->capacity = capacity;
+    ring->overwrite_count = 0u;
+    ring->entries = storage;
+}
+
+/**
+ * @brief Clear all entries from the ring buffer and reset its indices and counters. This does not modify the storage array, but simply resets the state of the ring buffer to be empty.
+ *
+ * @param ring The ring buffer structure to clear.
+ */
+static inline void smal_dbg_ring_clear(smal_dbg_ring_t *ring)
+{
+    if (ring == NULL)
+    {
+        return;
+    }
+    ring->oldest_index = 0u;
+    ring->write_index = 0u;
+    ring->entry_count = 0u;
+    ring->overwrite_count = 0u;
+}
+
+/**
+ * @brief Check if the ring buffer is empty, i.e. it contains no valid entries.
+ *
+ * @param ring The ring buffer structure to check.
+ * @return true if the ring buffer is empty (i.e. entry_count is 0), or if the ring pointer is NULL (considered empty in this case).
+ * @return false if the ring buffer contains one or more valid entries, or if the ring pointer is NULL (considered empty in this case).
+ */
+static inline bool smal_dbg_ring_is_empty(const smal_dbg_ring_t *ring)
+{
+    if (ring == NULL)
+    {
+        return true;
+    }
+    return (ring->entry_count == 0u);
+}
+
+/**
+ * @brief Check if the ring buffer is full, i.e. it has reached its maximum capacity and the next push will overwrite the oldest entry.
+ *
+ * @param ring The ring buffer structure to check.
+ * @return true if the ring buffer is full.
+ * @return false if the ring buffer's entry count is less than its capacity, or if the ring pointer is NULL (considered not full in this case).
+ */
+static inline bool smal_dbg_ring_is_full(const smal_dbg_ring_t *ring)
+{
+    if (ring == NULL)
+    {
+        return false;
+    }
+    return (ring->entry_count == ring->capacity);
+}
+
+/**
+ * @brief Get the index of the oldest entry in the ring buffer, which is the next entry to be read or flushed. This is also the index that will be overwritten next if a new entry is pushed when the ring is full.
+ *
+ * @param ring The ring buffer structure to query.
+ * @return uint16_t The index of the oldest entry in the ring buffer. If the ring pointer is NULL, this function returns 0, but the result should not be used in that case.
+ */
+static inline uint16_t smal_dbg_ring_oldest_index(const smal_dbg_ring_t *ring)
+{
+    if (ring == NULL)
+    {
+        return 0u;
+    }
+    return ring->oldest_index;
+}
+
+/**
+ * @brief Push a new entry into the ring buffer. If the ring is full, this will overwrite the oldest entry and update the indices and counters accordingly.
+ *
+ * @param ring The ring buffer structure to push the entry into.
+ * @param entry The entry to be pushed into the ring buffer.
+ * @return true if the entry was successfully pushed into the ring buffer.
+ * @return false if the ring buffer is NULL, has no entries, or has zero capacity.
+ */
+static inline bool smal_dbg_ring_push(smal_dbg_ring_t *ring, const smal_dbg_entry_t *entry)
+{
+    if ((ring == NULL) || (ring->entries == NULL) || (ring->capacity == 0u))
+    {
+        return false;
+    }
+
+    ring->entries[ring->write_index] = *entry;
+    ring->write_index = (uint16_t)((ring->write_index + 1u) % ring->capacity);
+
+    if (ring->entry_count < ring->capacity)
+    {
+        ++ring->entry_count;
+    }
+    else
+    {
+        ring->oldest_index = ring->write_index;
+        ++ring->overwrite_count;
+    }
+
+    return true;
+}
+
+/**
+ * @brief Get a pointer to the entry at the specified offset from the oldest entry in the ring buffer. The offset should be less than the current entry count of the ring buffer.
+ *
+ * @param ring The ring buffer structure to query.
+ * @param offset The offset from the oldest entry to retrieve, where 0 corresponds to the oldest entry, 1 corresponds to the second oldest entry, etc. The offset should be less than the current entry count of the ring buffer.
+ * @return const smal_dbg_entry_t* A pointer to the entry at the specified offset from the oldest entry in the ring buffer. If the offset is out of bounds, or if the ring buffer is NULL, has no entries, or has zero capacity, this function returns NULL.
+ */
+static inline const smal_dbg_entry_t *smal_dbg_ring_get(const smal_dbg_ring_t *ring, uint16_t offset)
+{
+    uint16_t oldest_index;
+    uint16_t index;
+
+    if ((ring == NULL) || (offset >= ring->entry_count) || (ring->entries == NULL) || (ring->capacity == 0u))
+    {
+        return NULL;
+    }
+
+    oldest_index = smal_dbg_ring_oldest_index(ring);
+    index = (uint16_t)((oldest_index + offset) % ring->capacity);
+    return &ring->entries[index];
+}
+
+/**
+ * @brief Get a pointer to the oldest contiguous block of entries in the ring buffer, starting from the oldest entry. This can be used to efficiently flush entries in batches. The number of entries returned will be the minimum of the number of entries currently in the ring buffer and the number of entries from the oldest entry to the end of the storage array (i.e. before wrapping around).
+ *
+ * @param ring The ring buffer structure to query.
+ * @param entries Output parameter that will be set to point to the oldest contiguous block of entries in the ring buffer. If the ring buffer is empty, or if the ring pointer is NULL, or if the entries pointer is NULL, this will be set to NULL.
+ * @return uint16_t The number of entries in the contiguous block pointed to by the entries output parameter. This will be 0 if the ring buffer is empty, or if the ring pointer is NULL, or if the entries pointer is NULL.
+ */
+static inline uint16_t smal_dbg_ring_peek_linear(const smal_dbg_ring_t *ring, const smal_dbg_entry_t **entries)
+{
+    uint16_t oldest_index;
+    uint16_t tail_count;
+
+    if ((entries == NULL) || smal_dbg_ring_is_empty(ring) || (ring->entries == NULL) || (ring->capacity == 0u))
+    {
+        if (entries != NULL)
+        {
+            *entries = NULL;
+        }
+        return 0u;
+    }
+
+    oldest_index = smal_dbg_ring_oldest_index(ring);
+    *entries = &ring->entries[oldest_index];
+    tail_count = (uint16_t)(ring->capacity - oldest_index);
+
+    if (tail_count > ring->entry_count)
+    {
+        tail_count = ring->entry_count;
+    }
+
+    return tail_count;
+}
+
+/**
+ * @brief Drop the specified number of oldest entries from the ring buffer, effectively advancing the read head. This should be called after flushing a batch of entries to indicate that those entries have been processed and can be overwritten. If the count is greater than the current entry count of the ring buffer, this will drop all entries and reset the ring buffer to be empty.
+ *
+ * @param ring The ring buffer structure to modify.
+ * @param count The number of oldest entries to drop from the ring buffer. This should be less than or equal to the current entry count of the ring buffer. If this value is greater than the current entry count, all entries will be dropped and the ring buffer will be reset to empty.
+ * @return uint16_t The actual number of entries dropped from the ring buffer, which will be the minimum of the count parameter and the current entry count of the ring buffer.
+ */
+static inline uint16_t smal_dbg_ring_drop_oldest(smal_dbg_ring_t *ring, uint16_t count)
+{
+    if (ring == NULL)
+    {
+        return 0u;
+    }
+
+    if (count > ring->entry_count)
+    {
+        count = ring->entry_count;
+    }
+
+    if ((count != 0u) && (ring->capacity != 0u))
+    {
+        ring->oldest_index = (uint16_t)((ring->oldest_index + count) % ring->capacity);
+    }
+
+    ring->entry_count = (uint16_t)(ring->entry_count - count);
+    return count;
+}
+
+/**
+ * @brief Create a state transition entry with the provided source state, event, target state, and status. The timestamp will be set to the current time in milliseconds when the entry is created.
+ *
+ * @param src_state The source state of the transition.
+ * @param evt The event that triggered the transition.
+ * @param tgt_state The target state of the transition.
+ * @param status The status associated with the transition.
+ * @return smal_dbg_entry_t A SMAL debug entry of type state transition with the specified values and the current timestamp.
+ */
+static inline smal_dbg_entry_t smal_dbg_create_transition(uint16_t src_state, uint16_t evt, uint16_t tgt_state,
+        int16_t status)
+{
+    smal_dbg_entry_t entry;
+
+    entry.entry_type = SMAL_DBG_ENTRY_TYPE_STATE_TRANSITION;
+    entry.timestamp_ms = smal_dbg_get_timestamp_ms();
+    entry.payload.transition.src_state = src_state;
+    entry.payload.transition.tgt_state = tgt_state;
+    entry.payload.transition.evt = evt;
+    entry.payload.transition.status = status;
+
+    return entry;
+}
+
+/**
+ * @brief Create a message entry with the provided entry type, identifier, data length, and value. The timestamp will be set to the current time in milliseconds when the entry is created.
+ *
+ * @param entry_type The type of the message entry, which should be one of the event/command types defined in smal_dbg_entry_type_t, e.g. SMAL_DBG_ENTRY_TYPE_EVENT_RX, SMAL_DBG_ENTRY_TYPE_CMD_TX, etc.
+ * @param identifier The identifier of the event or command, which can be used to specify which event or command this message entry corresponds to.
+ * @param data_len The length of the data associated with the event or command, in bytes. This can be used to indicate the size of the payload or parameters, if any.
+ * @param value A value associated with the event or command. The interpretation of this field can depend on the context, e.g. it could be a parameter value, a status code, etc.
+ * @return smal_dbg_entry_t A SMAL debug entry of type event or command with the specified values and the current timestamp.
+ */
+static inline smal_dbg_entry_t smal_dbg_create_msg(uint32_t entry_type, uint16_t identifier, uint16_t data_len,
+        uint32_t value)
+{
+    smal_dbg_entry_t entry;
+
+    entry.entry_type = entry_type;
+    entry.timestamp_ms = smal_dbg_get_timestamp_ms();
+    entry.payload.message.identifier = identifier;
+    entry.payload.message.data_len = data_len;
+    entry.payload.message.value = value;
+
+    return entry;
+}
+
+/**
+ * @brief Create a data read entry with the provided address and data length. The timestamp will be set to the current time in milliseconds when the entry is created.
+ *
+ * @param address The address that was read from. The interpretation of this field can depend on the context, e.g. it could be a memory address, a register address, etc.
+ * @param data_len The length of the data that was read, in bytes. This can be used to indicate the size of the operation, e.g. 1 for byte, 2 for half-word, 4 for word, etc.
+ * @return smal_dbg_entry_t A SMAL debug entry of type data read with the specified values and the current timestamp.
+ */
+static inline smal_dbg_entry_t smal_dbg_create_data_read(uint32_t address, uint32_t data_len)
+{
+    smal_dbg_entry_t entry;
+
+    entry.entry_type = SMAL_DBG_ENTRY_TYPE_DATA_READ;
+    entry.timestamp_ms = smal_dbg_get_timestamp_ms();
+    entry.payload.data.address = address;
+    entry.payload.data.data_len = data_len;
+
+    return entry;
+}
+
+/**
+ * @brief Create a data write entry with the provided address and data length. The timestamp will be set to the current time in milliseconds when the entry is created.
+ *
+ * @param address The address that was written to. The interpretation of this field can depend on the context, e.g. it could be a memory address, a register address, etc.
+ * @param data_len The length of the data that was written, in bytes. This can be used to indicate the size of the operation, e.g. 1 for byte, 2 for half-word, 4 for word, etc.
+ * @return smal_dbg_entry_t A SMAL debug entry of type data write with the specified values and the current timestamp.
+ */
+static inline smal_dbg_entry_t smal_dbg_create_data_write(uint32_t address, uint32_t data_len)
+{
+    smal_dbg_entry_t entry;
+
+    entry.entry_type = SMAL_DBG_ENTRY_TYPE_DATA_WRITE;
+    entry.timestamp_ms = smal_dbg_get_timestamp_ms();
+    entry.payload.data.address = address;
+    entry.payload.data.data_len = data_len;
+
+    return entry;
+}
+
+/**
+ * @brief Create an error entry with the provided error code and detail. The timestamp will be set to the current time in milliseconds when the entry is created.
+ *
+ * @param error_code The error code associated with the error. Negative values can indicate different error types or categories, while non-negative values can be used for specific error codes within those categories.
+ * @param detail Additional detail about the error, which can be used for debugging purposes. The interpretation of this field can depend on the error_code, e.g. it could be an address, a value, a bitmask, etc.
+ * @return smal_dbg_entry_t A SMAL debug entry of type error with the specified values and the current timestamp.
+ */
+static inline smal_dbg_entry_t smal_dbg_create_error(int32_t error_code, uint32_t detail)
+{
+    smal_dbg_entry_t entry;
+
+    entry.entry_type = SMAL_DBG_ENTRY_TYPE_ERROR;
+    entry.timestamp_ms = smal_dbg_get_timestamp_ms();
+    entry.payload.error.error_code = error_code;
+    entry.payload.error.detail = detail;
+
+    return entry;
+}
+
+/**
+ * @brief Log a state transition entry into the specified ring buffer with the provided source state, event, target state, and status. This will create a state transition entry with the current timestamp and push it into the ring buffer.
+ *
+ * @param ring The ring buffer to log the state transition entry into.
+ * @param src_state The source state of the transition.
+ * @param evt The event that triggered the transition.
+ * @param tgt_state The target state of the transition.
+ * @param status The status associated with the transition.
+ * @return true if the entry was successfully created and pushed into the ring buffer.
+ * @return false if the ring buffer is NULL, has no entries, has zero capacity, or if the push operation failed for any reason.
+ */
+static inline bool smal_dbg_log_transition(smal_dbg_ring_t *ring, uint16_t src_state, uint16_t evt, uint16_t tgt_state,
+        int16_t status)
+{
+    smal_dbg_entry_t entry = smal_dbg_create_transition(src_state, evt, tgt_state, status);
+    return smal_dbg_ring_push(ring, &entry);
+}
+
+/**
+ * @brief Log a message entry into the specified ring buffer with the provided entry type, identifier, data length, and value. This will create a message entry with the current timestamp and push it into the ring buffer.
+ *
+ * @param ring The ring buffer to log the message entry into.
+ * @param entry_type The type of the message entry, which should be one of the event/command types defined in smal_dbg_entry_type_t, e.g. SMAL_DBG_ENTRY_TYPE_EVENT_RX, SMAL_DBG_ENTRY_TYPE_CMD_TX, etc.
+ * @param identifier The identifier of the event or command, which can be used to specify which event or command this message entry corresponds to.
+ * @param data_len The length of the data associated with the event or command, in bytes. This can be used to indicate the size of the payload or parameters, if any.
+ * @param value A value associated with the event or command. The interpretation of this field can depend on the context, e.g. it could be a parameter value, a status code, etc.
+ * @return true if the entry was successfully created and pushed into the ring buffer.
+ * @return false if the ring buffer is NULL, has no entries, has zero capacity, or if the push operation failed for any reason.
+ */
+static inline bool smal_dbg_log_msg(smal_dbg_ring_t *ring, uint32_t entry_type, uint16_t identifier, uint16_t data_len,
+                                    uint32_t value)
+{
+    smal_dbg_entry_t entry = smal_dbg_create_msg(entry_type, identifier, data_len, value);
+    return smal_dbg_ring_push(ring, &entry);
+}
+
+/**
+ * @brief Log a data read entry into the specified ring buffer with the provided address and data length. This will create a data read entry with the current timestamp and push it into the ring buffer.
+ *
+ * @param ring The ring buffer to log the data read entry into.
+ * @param address The address that was read from. The interpretation of this field can depend on the context, e.g. it could be a memory address, a register address, etc.
+ * @param data_len The length of the data that was read, in bytes. This can be used to indicate the size of the operation, e.g. 1 for byte, 2 for half-word, 4 for word, etc.
+ * @return true if the entry was successfully created and pushed into the ring buffer.
+ * @return false if the ring buffer is NULL, has no entries, has zero capacity, or if the push operation failed for any reason.
+ */
+static inline bool smal_dbg_log_data_read(smal_dbg_ring_t *ring, uint32_t address, uint32_t data_len)
+{
+    smal_dbg_entry_t entry = smal_dbg_create_data_read(address, data_len);
+    return smal_dbg_ring_push(ring, &entry);
+}
+
+/**
+ * @brief Log a data write entry into the specified ring buffer with the provided address and data length. This will create a data write entry with the current timestamp and push it into the ring buffer.
+ *
+ * @param ring The ring buffer to log the data write entry into.
+ * @param address The address that was written to. The interpretation of this field can depend on the context, e.g. it could be a memory address, a register address, etc.
+ * @param data_len The length of the data that was written, in bytes. This can be used to indicate the size of the operation, e.g. 1 for byte, 2 for half-word, 4 for word, etc.
+ * @return true if the entry was successfully created and pushed into the ring buffer.
+ * @return false if the ring buffer is NULL, has no entries, has zero capacity, or if the push operation failed for any reason.
+ */
+static inline bool smal_dbg_log_data_write(smal_dbg_ring_t *ring, uint32_t address, uint32_t data_len)
+{
+    smal_dbg_entry_t entry = smal_dbg_create_data_write(address, data_len);
+    return smal_dbg_ring_push(ring, &entry);
+}
+
+/**
+ * @brief Log an error entry into the specified ring buffer with the provided error code and detail. This will create an error entry with the current timestamp and push it into the ring buffer.
+ *
+ * @param ring The ring buffer to log the error entry into.
+ * @param error_code The error code associated with the error. Negative values can indicate different error types or categories, while non-negative values can be used for specific error codes within those categories.
+ * @param detail Additional detail about the error, which can be used for debugging purposes. The interpretation of this field can depend on the error_code, e.g. it could be an address, a value, a bitmask, etc.
+ * @return true if the entry was successfully created and pushed into the ring buffer.
+ * @return false if the ring buffer is NULL, has no entries, has zero capacity, or if the push operation failed for any reason.
+ */
+static inline bool smal_dbg_log_error(smal_dbg_ring_t *ring, int32_t error_code, uint32_t detail)
+{
+    smal_dbg_entry_t entry = smal_dbg_create_error(error_code, detail);
+    return smal_dbg_ring_push(ring, &entry);
+}
+
+/**
+ * @brief Flush entries from the ring buffer in batches, sending them through the smal_dbg_flush_packet function. This function manages the state of the flush cycle using the flush_status structure, and sends packets of entries until all entries that were in the ring at the start of the flush cycle have been sent. If null_terminate is true, an additional empty packet will be sent at the end of the flush cycle to indicate completion.
+ *
+ * @param null_terminate If true, an additional empty packet will be sent at the end of the flush cycle to indicate completion. If false, no additional packet will be sent after the last batch of entries.
+ * @param flush_status Pointer to the flush status structure that manages the state of the flush cycle. This should be initialized before starting the flush cycle and will be updated by this function as it progresses through sending packets.
+ * @param ring Pointer to the ring buffer containing the entries to be flushed. The entries that will be flushed are those that were in the ring at the start of the flush cycle, as indicated by the pkt_cnt and oldest_idx fields of the flush_status structure.
+ * @param user_ctx A user-defined context pointer that will be passed to the smal_dbg_flush_packet function when sending packets. This can be used to provide additional information or state to the flush_packet function as needed.
+ */
+static inline void smal_dbg_flush(bool null_terminate, smal_dbg_flush_status_t *flush_status, smal_dbg_ring_t *ring,
+                                  void *user_ctx)
+{
+    if (SMAL_DBG_MAX_ENTRIES_PER_TRANSMIT == 0u)
+    {
+        return;
+    }
+
+    if ((flush_status == NULL) || (ring == NULL))
+    {
+        return;
+    }
+
+    if (!flush_status->active)
+    {
+        flush_status->num_entries_sent = 0u;
+        flush_status->entry_count = ring->entry_count;
+        flush_status->oldest_idx = ring->oldest_index;
+        flush_status->entry_transmit_complete = false;
+        flush_status->active = true;
+    }
+
+    if (flush_status->entry_transmit_complete)
+    {
+        flush_status->entry_transmit_complete = false;
+        flush_status->active = false;
+        if (null_terminate)
+        {
+            smal_dbg_flush_packet(0, NULL, user_ctx); // Send an empty packet to indicate completion of the flush cycle
+        }
+        return;
+    }
+
+    // If this is not the last packet, we need to calculate how big this one is and send it, and advance our variables
+    uint16_t remaining_entries = flush_status->entry_count - flush_status->num_entries_sent;
+    uint16_t num_entries_in_pkt = (uint16_t)MIN(SMAL_DBG_MAX_ENTRIES_PER_TRANSMIT, remaining_entries);
+    smal_dbg_entry_t pkt[SMAL_DBG_MAX_ENTRIES_PER_TRANSMIT];
+    for (uint16_t i = 0u; i < num_entries_in_pkt; i++)
+    {
+        // Calculate the index of the next entry to send, accounting for wrap-around
+        uint16_t idx = (uint16_t)((flush_status->oldest_idx + flush_status->num_entries_sent + i) % ring->capacity);
+        pkt[i] = ring->entries[idx];
+    }
+    flush_status->num_entries_sent += num_entries_in_pkt;
+    // If we sent the last of the entries, the next packet should be empty
+    if (flush_status->num_entries_sent >= flush_status->entry_count)
+    {
+        flush_status->entry_transmit_complete = true;
+    }
+    smal_dbg_flush_packet(sizeof(smal_dbg_entry_t) * num_entries_in_pkt, pkt, user_ctx);
+}
+
+#endif /* SMAL_DBG_H */

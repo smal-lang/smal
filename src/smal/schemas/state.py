@@ -213,6 +213,8 @@ class State(BaseModel, IdentifierValidationMixin):
             State: The State instance created from the short-hand representation.
 
         """
+        if isinstance(data, cls):
+            return data
         if isinstance(data, str):
             return cls(name=data)
         if isinstance(data, dict):

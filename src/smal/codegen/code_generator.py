@@ -47,7 +47,8 @@ class SMALCodeGenerator:
         """
         env = self._build_env()
         smal_tmpl = TemplateRegistry.get(template_name)
-        tmpl = env.get_template(smal_tmpl.filename)
+        filepath = str(Path(smal_tmpl.lang) / smal_tmpl.filename)
+        tmpl = env.get_template(filepath)
         return env, tmpl, smal_tmpl
 
     def load_external_template(self, external_template_filepath: str | Path) -> tuple[Environment, Template]:

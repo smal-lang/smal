@@ -399,6 +399,21 @@ class StateMachine(IdentifierValidationMixin, SemverValidationMixin, BaseModel):
         return flat
 
     @classmethod
+    def blank(cls, name: str = "NULL", version: str = "0.0.0", states: list[State] | None = None) -> Self:
+        """Create a blank StateMachine instance with the given name and version, a single initial state, no events or transitions.
+
+        Args:
+            name (str, optional): The name of the state machine. Defaults to "NULL".
+            version (str, optional): The semantic version of the state machine. Defaults to "0.0.0".
+            states (list[State] | None, optional): An optional list of states to initialize the state machine with. Defaults to None, which results in an empty list of states.
+
+        Returns:
+            Self: A blank StateMachine instance.
+
+        """
+        return cls(name=name, version=version, states=states or [State(name="initial", type=StateType.INITIAL)])
+
+    @classmethod
     def from_file(cls, path: str | Path) -> Self:
         """Instantiate a StateMachine/SMALFile from the file at the given path.
 

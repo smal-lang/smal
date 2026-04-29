@@ -14,10 +14,10 @@ from smal.codegen import MacroRegistry, TemplateRegistry
 from smal.codegen.code_generator import SMALCodeGenerator
 from smal.schemas.state_machine import SMALFile
 
-code_app = typer.Typer(help="Generate code from SMAL files using Jinja2 templates.")
+code_app = typer.Typer(help="Generate code from SMAL files using Jinja2 templates.", no_args_is_help=True)
 
 
-@code_app.command("generate", help="Generate code from a SMAL file using a Jinja2 template.")
+@code_app.command("generate", help="Generate code from a SMAL file using a Jinja2 template.", no_args_is_help=True)
 def generate_cmd(
     smal_path: Path = typer.Argument(..., exists=True, file_okay=True, dir_okay=False, readable=True, help="Path to the input SMAL file."),  # noqa: B008
     template: str = typer.Option(
@@ -145,7 +145,9 @@ def generate_code_cmd_builtin(smal_path: Path, template_name: str, out_dir: Path
     smal = SMALFile.from_file(smal_path)
     generator = SMALCodeGenerator()
     _env, btmpl, smal_tmpl = generator.load_builtin_template(template_name)
-    out_filepath = out_dir / (out_filename or f"{smal_tmpl.name}{smal_tmpl.output_extension}")
+    sanitized_out_fn = Path(out_filename).stem if out_filename else None
+    fn = f"{sanitized_out_fn}{smal_tmpl.output_extension}" if sanitized_out_fn else f"{smal_tmpl.name}{smal_tmpl.output_extension}"
+    out_filepath = out_dir / fn
     extra_context = smal_tmpl.extra_context.copy()
     for ctx_key, compute_fn in smal_tmpl.computed_extra_context.items():
         extra_context[ctx_key] = compute_fn(smal)
@@ -173,7 +175,9 @@ def generate_code_cmd_custom(smal_path: Path, custom_template_path: Path, out_di
     smal = SMALFile.from_file(smal_path)
     generator = SMALCodeGenerator()
     _env, ctmpl = generator.load_external_template(custom_template_path)
-    out_filepath = out_dir / (out_filename or custom_template_path.stem)
+    sanitized_out_fn = Path(out_filename).stem if out_filename else None
+    fn = f"{sanitized_out_fn}{ctmpl.output_extension}" if sanitized_out_fn else f"{ctmpl.name}{ctmpl.output_extension}"
+    out_filepath = out_dir / fn
     try:
         generator.render_to_file(ctmpl, smal, out_filepath, force=force)
     except ValueError:  # noqa: TRY203 - Error will automatically re-raise. Keeping for clarity

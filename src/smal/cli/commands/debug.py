@@ -4,16 +4,21 @@ from __future__ import annotations  # Until Python 3.14
 
 import importlib.util
 import sys
-from pathlib import Path  # noqa: TC003 - Typer needs this
+from pathlib import Path
 from typing import Any, Protocol
 
+import click
 import typer
 from rich.console import Console
 from rich.markup import escape
 
 from smal.cli.commands.helpers import echo_table
+from smal.codegen.code_generator import SMALCodeGenerator
+from smal.codegen.templates.builtin_templates import TemplateRegistry
 from smal.schemas.debug import SMALDebugEntry, SMALDebugEntryType
 from smal.schemas.state_machine import SMALFile, StateMachine
+
+debug_app = typer.Typer(help="Debug SMAL state machines using custom debug data, and generate boilerplate debugging code for your target.", no_args_is_help=True)
 
 
 class HarvestFunc(Protocol):
@@ -66,6 +71,7 @@ def _display_entries(entries: list[SMALDebugEntry], sm: StateMachine) -> None:
     )
 
 
+@debug_app.command("run", help="Debug a SMAL state machine using a custom debug data harvesting script.", no_args_is_help=True)
 def debug_cmd(
     smal_path: Path = typer.Argument(  # noqa: B008
         ...,
@@ -205,3 +211,60 @@ def debug_cmd(
     # Display the entries in a rich table
     console.print()
     _display_entries(entries, smal)
+
+
+@debug_app.command("gen-boilerplate", help="Generate boilerplate code for debugging SMAL state machines in a given programming language.", no_args_is_help=True)
+def gen_boilerplate_cmd(
+    lang: str = typer.Argument(
+        ...,
+        click_type=click.Choice(["c"], case_sensitive=False),
+        help="The programming language to generate boilerplate code for.",
+    ),
+    output_dir: Path = typer.Option(  # noqa: B008
+        Path("./generated"),
+        "--out",
+        "-o",
+        file_okay=False,
+        dir_okay=True,
+        writable=True,
+        help="Directory where generated boilerplate code will be written (default: ./generated).",
+    ),
+    filename: str = typer.Option(
+        None,
+        "--filename",
+        "-n",
+        help="Optional filename for the generated boilerplate code. If not provided, a default name based on the language will be used.",
+    ),
+    force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing files if they already exist."),
+) -> None:
+    """Generate debugging boilerplate code for the given programming language.
+
+    Args:
+        lang (str, optional): The programming language to generate boilerplate code for.
+        output_dir (Path, optional): Directory where generated boilerplate code will be written. Defaults to Path("./generated").
+        filename (str, optional): Optional filename for the generated boilerplate code. If not provided, a default name based on the language will be used. Defaults to None.
+        force (bool, optional): Whether to overwrite existing files if they already exist. Defaults to False.
+
+    """
+    console = Console()
+    # Validate output directory existence and writability
+    if not output_dir.exists():
+        output_dir.mkdir(parents=True, exist_ok=True)
+    elif not output_dir.is_dir():
+        raise typer.BadParameter(f"Output path exists but is not a directory: {output_dir}")
+    generator = SMALCodeGenerator()
+    boilerplate_templates = TemplateRegistry.get_dbg_boilerplate_templates(lang)
+    if not boilerplate_templates:
+        console.print(f"[red]No debug boilerplate templates found for language: {lang}[/red]")
+        return
+    for tmpl in boilerplate_templates:
+        console.print(f"[green]Generating debug boilerplate code for [cyan]{lang}[/cyan] using template: [bold cyan]{tmpl.name}[/bold cyan][/green]")
+        _env, btmpl, smal_tmpl = generator.load_builtin_template(tmpl.name)
+        sanitized_fn = Path(filename).stem if filename else None
+        fn = f"{sanitized_fn}{tmpl.output_extension}" if sanitized_fn else f"{smal_tmpl.name}{smal_tmpl.output_extension}"
+        out_filepath = output_dir / fn
+        try:
+            generator.render_to_file(btmpl, SMALFile.blank(), out_filepath, force=force)
+            console.print(f"[green]Successfully generated debug boilerplate code: [bold cyan]{out_filepath}[/bold cyan][/green]")
+        except ValueError:  # noqa: TRY203 - Error will automatically re-raise. Keeping for clarity
+            raise
